@@ -1,0 +1,111 @@
+N° cop;Copropriétaire;Type;Description;N° lot;Escalier;Etage;Porte cave;N° plan;Clé 1 : charges générales;Clé 3 : ascenceurs
+94;TREHAULT Alexia (Madame);Cave;Cave;201;3;sous-sol;;17;2;0
+85;UZZAN Ralph (Monsieur);Cave;Cave;202;3;sous-sol;;18;2;0
+82;TOYAS Christos (M. ou Mme);Cave;Cave;203;2;sous-sol;;19;2;0
+86;BAZIN Fabienne (Madame);Cave;Cave;204;3;sous-sol;;20;2;0
+40;OLEJNICZACK Francoise (Madame);Cave;Cave;205;1;sous-sol;;21;2;0
+28;GEORGET C/O M. GEORGET MARC (M;Cave;Cave;207;2;sous-sol;;23;2;0
+88;BAZIN Philippe (M. ou Mme);Cave;Cave;208;0;sous-sol;;24;2;0
+95;MOIGNO ep. LIGNIERES Claire (M;Cave;Cave;209;3;sous-sol;;25;2;0
+48;VAL & CO MADAME GIORDNENGO (S.;Cave;Cave;210;0;sous-sol;;26;2;0
+66;DAVID Vanessa (Mademoiselle);Cave;Cave;211;3;sous-sol;;27;2;0
+97;RUOTOLO Diego (Monsieur);Cave;Cave;212;2;sous-sol;;28;2;0
+96;DRIOUECH C./DELAFONTAINE R. (I;Cave;Cave;213;1;sous-sol;;29;2;0
+58;GUERRINI Aurelie (Mademoiselle;Cave;Cave;214;3;sous-sol;;30;2;0
+39;MOSCHKOWITZ Dominique (Madame);Cave;Cave;215;3;sous-sol;;31;2;0
+50;WEISS Francoise (Madame);Cave;Cave;216;3;sous-sol;;32;2;0
+6;BONICCO Ingrid (Mademoiselle);Cave;Cave;217;3;sous-sol;;33;2;0
+37;MILANESE F. (Madame);Cave;Cave;218;0;sous-sol;;34;2;0
+89;ALLAM Charlotte (Madame);Cave;Cave;219;1;sous-sol;;35;2;0
+72;FREIXANET Eric (M. ou Mme);Cave;Cave;220;2;sous-sol;;36;3;0
+37;MILANESE F. (Madame);Cave;Cave;221;0;sous-sol;;37;2;0
+16;DE CHELLE Arnaud (M. ou Mme);Cave;Cave;222;3;sous-sol;;38;2;0
+17;DONAT (Madame);Cave;Cave;223;0;sous-sol;;39;2;0
+83;ODDON F./OBRON VATTAIRE C. (In;Cave;Cave;225;3;sous-sol;;42;2;0
+90;MATUA Pavel (M. ou Mme);Cave;Cave;226;2;sous-sol;;43;2;0
+87;ATIBARD Damien (M. ou Mme);Cave;Cave;228;1;sous-sol;;44;2;0
+23;FONTES Raoul (Monsieur);Cave;Cave;229;1;sous-sol;;45;2;0
+91;MULTARI Maxime (Monsieur);Cave;Cave;230;3;sous-sol;;46;2;0
+77;KEISSER M. / FOLLIOT A. (Indiv;Cave;Cave;231;1;sous-sol;;47;2;0
+71;NAON RICHARD C/O UDAF (Monsieu;Cave;Cave;232;3;sous-sol;;48;2;0
+1;ATTALI Stephane (M. ou Mme);Cave;Cave;233;1;sous-sol;;49;2;0
+72;FREIXANET Eric (M. ou Mme);Garag;Garage;237;0;sous-sol;;1;15;0
+90;MATUA Pavel (M. ou Mme);Garag;Garage;238;0;sous-sol;;2;15;0
+11;BUFFA Serge (M. ou Mme);Garag;Garage;239;0;sous-sol;;3;15;0
+79;ROALDES Gael (Monsieur);Garag;Garage;240;0;sous-sol;;4;15;0
+93;CROISONNIER G./BLANC H. (Indiv;Garag;Garage;241;0;sous-sol;;5;15;0
+98;GENESTE R./CHASTANET D. (Indiv;Garag;Garage;242;0;sous-sol;;6;15;0
+64;FILIPPI Jean Luc (M. ou Mme);Garag;Garage;243;0;sous-sol;;7;15;0
+37;MILANESE F. (Madame);Garag;Garage;244;0;sous-sol;;8;15;0
+96;DRIOUECH C./DELAFONTAINE R. (I;Garag;Garage;246;0;sous-sol;;10;15;0
+32;JOBERT Guy (Monsieur);Garag;Garage;248;0;sous-sol;;12;15;0
+58;GUERRINI Aurelie (Mademoiselle;Garag;Garage;249;0;sous-sol;;13;15;0
+1;ATTALI Stephane (M. ou Mme);Garag;Garage;250;0;sous-sol;;14;15;0
+98;GENESTE R./CHASTANET D. (Indiv;Cave;Cave;252;2;rdc;;1;2;0
+98;GENESTE R./CHASTANET D. (Indiv;Cave;Cave;253;2;rdc;;2;2;0
+64;FILIPPI Jean Luc (M. ou Mme);Cave;Cave;254;3;rdc;;3;2;0
+79;ROALDES Gael (Monsieur);Cave;Cave;255;2;rdc;;4;2;0
+73;BELAMICH Valerie (Madame);Cave;Cave;256;2;rdc;;5;2;0
+69;BAFGHI Abdol-Reza (M. ou Mme);Cave;Cave;258;0;rdc;;7;2;0
+2;BEL Andree (Madame);Cave;Cave;260;2;rdc;;9;2;0
+92;ROUIS Raja (Madame);Cave;Cave;262;2;rdc;;11;2;0
+78;RADEV Martin (M. ou Mme);Cave;Cave;263;2;rdc;;12;2;0
+49;VELLA Patrick (Monsieur);Cave;Cave;264;0;rdc;;13;2;0
+30;GUILLEMIN Sophie (Mademoiselle;Cave;Cave;265;2;rdc;;14;2;0
+61;HOUZELOT MARIE-ELISABETH   (Ma;Cave;Cave;267;2;rdc;;16;2;0
+22;FILIPPI Sylvie (Madame);Chamb;Atelier;268;2;rdc;;17;6;0
+22;FILIPPI Sylvie (Madame);Chamb;Atelier;269;2;rdc;;18;6;0
+22;FILIPPI Sylvie (Madame);Chamb;Atelier;270;2;rdc;;19;6;0
+72;FREIXANET Eric (M. ou Mme);Appar;T3 & terrasse;271;2;rdc;;20;230;0
+72;FREIXANET Eric (M. ou Mme);Appar;Studio;272;2;rdc;;21;90;0
+87;ATIBARD Damien (M. ou Mme);Appar;Studio;273;2;rdc;;22;80;0
+22;FILIPPI Sylvie (Madame);Appar;chambre de service;274;1;rdc;;23;30;0
+64;FILIPPI Jean Luc (M. ou Mme);Chamb;Chambre de service;275;2;rdc;;24;35;0
+22;FILIPPI Sylvie (Madame);Appar;chambre de service;276;2;rdc;;25;35;0
+59;ALLO Frederic (M. ou Mme);Appar;chambre de service;277;2;rdc;;26;35;0
+6;BONICCO Ingrid (Mademoiselle);Appar;Studio;278;3;rdc;;27;75;0
+94;TREHAULT Alexia (Madame);Appar;Studio;279;3;rdc;;28;75;0
+95;MOIGNO ep. LIGNIERES Claire (M;Appar;Studio;280;3;rdc;;29;75;0
+71;NAON RICHARD C/O UDAF (Monsieu;Appar;T2;281;3;rdc;;30;118;0
+1;ATTALI Stephane (M. ou Mme);Appar;T4;282;1;1;;1;315;200
+32;JOBERT Guy (Monsieur);Appar;T2;283;1;1;;2;165;120
+13;CHAPELLE (M. ou Mme);Appar;Studio;284;1;1;;3;122;80
+30;GUILLEMIN Sophie (Mademoiselle;Appar;T3;285;2;1;;4;225;40
+61;HOUZELOT MARIE-ELISABETH   (Ma;Appar;Studio;286;2;1;;5;120;20
+92;ROUIS Raja (Madame);Appar;Studio;287;2;1;;6;100;20
+49;VELLA Patrick (Monsieur);Appar;T2;288;2;1;;7;140;30
+45;RAMIN H. (M. ou Mme);Appar;Studio;289;2;1;;8;87;15
+91;MULTARI Maxime (Monsieur);Appar;T2;290;3;1;;10;140;30
+83;ODDON F./OBRON VATTAIRE C. (In;Appar;Studio;291;3;1;;11;84;15
+66;DAVID Vanessa (Mademoiselle);Appar;T2;292;3;1;;9;150;30
+3;BENZIMRA (Madame);Appar;T3;293;1;2;;1;357;325
+3;BENZIMRA (Madame);Appar;T2;294;1;2;;2;192;185
+40;OLEJNICZACK Francoise (Madame);Appar;Studio;295;1;2;;3;130;140
+82;TOYAS Christos (M. ou Mme);Appar;T3;296;2;2;;4;240;200
+28;GEORGET C/O M. GEORGET MARC (M;Appar;Studio;297;2;2;;5;150;110
+25;GALY - LE GOFF Alexia (Mademoi;Appar;T2;298;2;2;;6;172;120
+2;BEL Andree (Madame);Appar;T3;299;2;2;;7;240;200
+86;BAZIN Fabienne (Madame);Appar;T3;300;3;2;;8;242;200
+85;UZZAN Ralph (Monsieur);Appar;T2;301;3;2;;9;170;120
+96;DRIOUECH C./DELAFONTAINE R. (I;Appar;T4;302;1;3;;1;340;425
+23;FONTES Raoul (Monsieur);Appar;T2;303;1;3;;2;190;230
+89;ALLAM Charlotte (Madame);Appar;Studio;304;1;3;;3;130;165
+11;BUFFA Serge (M. ou Mme);Appar;T3;305;2;3;;4;242;290
+69;BAFGHI Abdol-Reza (M. ou Mme);Appar;Studio;306;2;3;;5;150;160
+73;BELAMICH Valerie (Madame);Appar;T2;307;2;3;;6;170;180
+79;ROALDES Gael (Monsieur);Appar;T3;308;2;3;;7;240;290
+50;WEISS Francoise (Madame);Appar;T3;309;3;3;;8;240;290
+39;MOSCHKOWITZ Dominique (Madame);Appar;T2;310;3;3;;9;170;200
+77;KEISSER M. / FOLLIOT A. (Indiv;Appar;T4;311;1;4;;1;342;525
+22;FILIPPI Sylvie (Madame);Appar;T2;312;1;4;;2;207;275
+17;DONAT (Madame);Appar;Studio;313;1;4;;3;130;200
+5;GAILES  (Madame);Appar;T3;314;2;4;;4;242;365
+88;BAZIN Philippe (M. ou Mme);Appar;T3;315;2;4;;5;320;450
+78;RADEV Martin (M. ou Mme);Appar;T3;316;2;4;;7;240;365
+48;VAL & CO MADAME GIORDNENGO (S.;Appar;T3;317;3;4;;8;240;365
+58;GUERRINI Aurelie (Mademoiselle;Appar;T2;318;3;4;;9;170;300
+98;GENESTE R./CHASTANET D. (Indiv;Appar;T5;319;1;5;;1;490;975
+97;RUOTOLO Diego (Monsieur);Appar;T4;320;2;5;;2;440;650
+90;MATUA Pavel (M. ou Mme);Appar;T3;321;2;5;;3;270;490
+37;MILANESE F. (Madame);Appar;T3;322;3;5;;4;335;610
+22;FILIPPI Sylvie (Madame);Appar;T1;323;2;rdc;;5;123;25
