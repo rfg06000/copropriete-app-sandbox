@@ -934,7 +934,7 @@ function populateOwnerSelect() {
         let isAdminLoggedIn = false;
         let caveData = [];
 
-        window.addEventListener('load', function() {
+window.addEventListener('load', function() {
             const savedData = localStorage.getItem('csvData');
             if (savedData) {
                 try {
@@ -943,30 +943,38 @@ function populateOwnerSelect() {
                     
                     if (csvData.length > 0) {
                         initializeDataDisplay();
+                    }
+                } catch (e) {
+                    console.log('Erreur lors du chargement des données sauvegardées');
+                }
+            }
+            
+            // Toujours essayer de charger depuis GitHub
+            loadFromGitHub(true);
+            
+            // Gérer la navigation par ancre (#cave, #calcul, etc.) dans l'URL
+            // Cette partie doit fonctionner MÊME SANS données
+            setTimeout(() => {
+                const hash = window.location.hash.substring(1); // Enlever le #
+                if (hash) {
+                    const buttons = {
+                        'admin': 0,
+                        'lots': 1,
+                        'calcul': 2,
+                        'cave': 3
+                    };
+                    
+                    if (buttons.hasOwnProperty(hash)) {
+                        const navButtons = document.querySelectorAll('.nav-btn');
+                        const button = navButtons[buttons[hash]];
                         
-                        // Gérer la navigation par ancre (#cave, #calcul, etc.) dans l'URL
-                        const hash = window.location.hash.substring(1); // Enlever le #
-                        if (hash) {
-                            const buttons = {
-                                'admin': 0,
-                                'lots': 1,
-                                'calcul': 2,
-                                'cave': 3
-                            };
-                            
-                            if (buttons.hasOwnProperty(hash)) {
-                                const navButtons = document.querySelectorAll('.nav-btn');
-                                const button = navButtons[buttons[hash]];
-                                
-                                if (button) {
-                                    setTimeout(() => {
-                                        showPage(hash, button);
-                                    }, 100);
-                                }
-                            }
+                        if (button) {
+                            showPage(hash, button);
                         }
-                        
-                        return;
+                    }
+                }
+            }, 200);
+        });
                     }
                 } catch (e) {
                     console.log('Erreur lors du chargement des données sauvegardées');
