@@ -1047,12 +1047,34 @@ window.addEventListener('load', function() {
                             localStorage.setItem('csvData', JSON.stringify(csvData));
                             initializeDataDisplay();
                             
-                            if (!silent) {
+                           if (!silent) {
                                 const statusDiv = document.getElementById('admin-status');
                                 statusDiv.textContent = `Fichier chargé depuis GitHub - ${csvData.length} lots trouvés`;
                                 statusDiv.style.display = 'block';
                                 statusDiv.className = 'success';
                                 showSuccess('Fichier CSV chargé depuis GitHub avec succès');
+                            }
+                            
+                            // Gérer la navigation après le chargement
+                            const hash = window.location.hash.substring(1);
+                            if (hash && silent) {
+                                const buttons = {
+                                    'admin': 0,
+                                    'lots': 1,
+                                    'calcul': 2,
+                                    'cave': 3
+                                };
+                                
+                                if (buttons.hasOwnProperty(hash)) {
+                                    const navButtons = document.querySelectorAll('.nav-btn');
+                                    const button = navButtons[buttons[hash]];
+                                    
+                                    if (button) {
+                                        setTimeout(() => {
+                                            showPage(hash, button);
+                                        }, 100);
+                                    }
+                                }
                             }
                         }
                     });
