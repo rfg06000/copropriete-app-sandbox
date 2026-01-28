@@ -527,7 +527,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <script>
         // IMPORTANT : REMPLACEZ PAR VOTRE URL GOOGLE SCRIPT
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxka-_FU79ih1UxYt82G-BO9nDcg87LHrVvrk3M29gM-wwPRIA42QOKJ8yx-6ER7t11/exec';        
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxka-_FU79ih1UxYt82G-BO9nDcg87LHrVvrk3M29gM-wwPRIA42QOKJ8yx-6ER7t11/exec';
+        
         let csvData = [];
         let filteredData = [];
         let isAdminLoggedIn = false;
@@ -990,10 +991,6 @@
                                     style="padding: 8px 15px; font-size: 14px;">
                                 Enregistrer
                             </button>
-                            ${currentCaveNumber ? `<button onclick="deleteCaveNumber('${owner}', '${lotNum}')" 
-                                    style="background: #dc3545; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 14px;">
-                                Supprimer
-                            </button>` : ''}
                         </div>
                     </div>
                 `;
@@ -1082,22 +1079,6 @@
                 showError('Erreur lors de l\'envoi à Google Sheets. Vérifiez votre connexion internet.');
                 console.error('Erreur:', error);
             });
-        }
-
-        function deleteCaveNumber(owner, lot) {
-            if (!confirm(`Voulez-vous vraiment supprimer le numéro de cave pour le lot ${lot} ?`)) {
-                return;
-            }
-
-            caveData = caveData.filter(item => !(item.owner === owner && item.lot === lot));
-            localStorage.setItem('caveData', JSON.stringify(caveData));
-            
-            updateDataCSVWithCaveNumber(lot, '');
-            saveUpdatedCSV();
-            
-            showSuccess('Numéro de cave supprimé avec succès');
-            
-            loadOwnerCaveLots();
         }
 
         function updateDataCSVWithCaveNumber(lotNum, caveNumber) {
