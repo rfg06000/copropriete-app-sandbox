@@ -399,7 +399,7 @@
                     <div style="border-top: 2px solid #e1e5e9; padding-top: 20px;">
                         <h4>Option 2 : Importer un nouveau fichier</h4>
                         <input type="file" id="csvFile" accept=".csv" onchange="loadCSV(event)">
-                        <p>Le fichier doit contenir les colonnes : N° cop, Copropriétaire, Type, Description, N° lot, Escalier, Etage, Porte cave, N° plan, Clé 1 : charges générales, Clé 3 : ascenceurs</p>
+                        <p>Le fichier doit contenir les colonnes : N° cop, Copropriétaire, Type, Description, N° lot, Escalier, Etage, Façade, Porte cave, N° plan, Clé 1 : charges générales, Clé 3 : ascenceurs, Description complète</p>
                         <p style="font-size: 14px; color: #666; margin-top: 10px;">
                             <strong>Note :</strong> Pour une sauvegarde permanente, ajoutez votre fichier CSV dans le repository GitHub sous le nom "data.csv"
                         </p>
@@ -442,10 +442,12 @@
                                 <th onclick="sortTableByColumn(4)">N° Lot ↕</th>
                                 <th onclick="sortTableByColumn(5)">Escalier ↕</th>
                                 <th onclick="sortTableByColumn(6)">Etage ↕</th>
-                                <th onclick="sortTableByColumn(7)">Porte cave ↕</th>
-                                <th onclick="sortTableByColumn(8)">N° Plan ↕</th>
-                                <th onclick="sortTableByColumn(9)">Clé 1 : charges générales ↕</th>
-                                <th onclick="sortTableByColumn(10)">Clé 3 : ascenceurs ↕</th>
+                                <th onclick="sortTableByColumn(7)">Façade ↕</th>
+                                <th onclick="sortTableByColumn(8)">Porte cave ↕</th>
+                                <th onclick="sortTableByColumn(9)">N° Plan ↕</th>
+                                <th onclick="sortTableByColumn(10)">Clé 1 : charges générales ↕</th>
+                                <th onclick="sortTableByColumn(11)">Clé 3 : ascenceurs ↕</th>
+                                <th onclick="sortTableByColumn(12)">Description complète ↕</th>
                             </tr>
                         </thead>
                         <tbody id="lotsTableBody">
@@ -771,10 +773,12 @@
                 const lotNum = row['N° lot'] || '';
                 const escalier = row['Escalier'] || '';
                 const etage = row['Etage'] || '';
+                const facade = row['Façade'] || '';
                 const porteCave = row['Porte cave'] || '';
                 const planNum = row['N° plan'] || '';
                 const chargesGen = row['Clé 1 : charges générales'] || '';
                 const chargesAsc = row['Clé 3 : ascenceurs'] || '';
+                const descriptionComplete = row['Description complète'] || '';
 
                 tr.innerHTML = `
                     <td>${copNum}</td>
@@ -784,10 +788,12 @@
                     <td>${lotNum}</td>
                     <td>${escalier}</td>
                     <td>${etage}</td>
+                    <td>${facade}</td>
                     <td>${porteCave}</td>
                     <td>${planNum}</td>
                     <td>${chargesGen}</td>
                     <td>${chargesAsc}</td>
+                    <td>${descriptionComplete}</td>
                 `;
                 tbody.appendChild(tr);
             });
