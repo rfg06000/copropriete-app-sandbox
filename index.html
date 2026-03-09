@@ -737,7 +737,7 @@
             Papa.parse(file, {
                 header: true,
                 skipEmptyLines: true,
-                encoding: 'UTF-8',
+                encoding: 'ISO-8859-1',
                 delimiter: ';',
                 complete: function(results) {
                     if (results.errors.length > 0) {
