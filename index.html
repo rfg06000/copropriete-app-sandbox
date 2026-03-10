@@ -357,6 +357,77 @@
             margin-bottom: 20px;
             text-align: center;
         }
+
+        .btn-fiche {
+            background: #4a90e2;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s ease;
+        }
+        .btn-fiche:hover { background: #357abd; }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-overlay.active { display: flex; }
+
+        .modal {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 550px;
+            width: 90%;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            position: relative;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-close {
+            position: absolute;
+            top: 15px; right: 20px;
+            background: none;
+            border: none;
+            font-size: 22px;
+            cursor: pointer;
+            color: #666;
+        }
+        .modal-close:hover { color: #333; }
+        .modal h3 {
+            color: #2c5aa0;
+            margin-bottom: 20px;
+            font-size: 1.2em;
+            padding-right: 30px;
+        }
+        .modal-field {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e1e5e9;
+            gap: 10px;
+        }
+        .modal-field:last-child { border-bottom: none; }
+        .modal-label { font-weight: 600; color: #2c5aa0; min-width: 160px; }
+        .modal-value { color: #333; }
+        .modal-description {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f0f7ff;
+            border-radius: 8px;
+            border-left: 4px solid #4a90e2;
+            line-height: 1.6;
+            color: #333;
+        }
     </style>
 </head>
 <body>
@@ -447,7 +518,7 @@
                                 <th onclick="sortTableByColumn(9)">N° Plan ↕</th>
                                 <th onclick="sortTableByColumn(10)">Clé 1 : charges générales ↕</th>
                                 <th onclick="sortTableByColumn(11)">Clé 3 : ascenceurs ↕</th>
-                                <th onclick="sortTableByColumn(12)">Description complète ↕</th>
+                                <th>Fiche</th>
                             </tr>
                         </thead>
                         <tbody id="lotsTableBody">
@@ -526,6 +597,15 @@
         </div>
     </div>
 
+    <!-- Modale fiche lot -->
+    <div class="modal-overlay" id="ficheModal" onclick="closeFicheModal(event)">
+        <div class="modal">
+            <button class="modal-close" onclick="document.getElementById('ficheModal').classList.remove('active')">✕</button>
+            <h3 id="modal-title">Fiche du lot</h3>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <script>
         // IMPORTANT : REMPLACEZ PAR VOTRE URL GOOGLE SCRIPT
@@ -539,7 +619,7 @@
             const savedData = localStorage.getItem('csvData');
             if (savedData) {
                 try {
-                    csvData = JSON.parse(savedData);
+                    csvData = normalizeKeys(JSON.parse(savedData));
                     filteredData = [...csvData];
                     
                     if (csvData.length > 0) {
@@ -590,6 +670,19 @@
             }
         }
 
+        function normalizeKeys(data) {
+            // Recrée chaque ligne avec des clés trimées et normalisées en NFC
+            // pour éviter les problèmes d'encodage avec les caractères accentués
+            return data.map(function(row) {
+                var newRow = {};
+                Object.keys(row).forEach(function(key) {
+                    var cleanKey = key.trim().normalize('NFC');
+                    newRow[cleanKey] = row[key];
+                });
+                return newRow;
+            });
+        }
+
         function initializeDataDisplay() {
             csvData.sort((a, b) => {
                 const nameA = (a['Copropriétaire'] || '').toLowerCase();
@@ -636,10 +729,10 @@
                                 return;
                             }
 
-                            csvData = results.data;
+                            csvData = normalizeKeys(results.data);
                             localStorage.setItem('csvData', JSON.stringify(csvData));
                             initializeDataDisplay();
-                            
+
                             if (!silent) {
                                 const statusDiv = document.getElementById('admin-status');
                                 statusDiv.textContent = `Fichier chargé depuis GitHub - ${csvData.length} lots trouvés`;
@@ -647,7 +740,7 @@
                                 statusDiv.className = 'success';
                                 showSuccess('Fichier CSV chargé depuis GitHub avec succès');
                             }
-                            
+
                             // Gérer la navigation après le chargement
                             const hash = window.location.hash.substring(1);
                             if (hash && silent) {
@@ -657,11 +750,11 @@
                                     'calcul': 2,
                                     'cave': 3
                                 };
-                                
+
                                 if (buttons.hasOwnProperty(hash)) {
                                     const navButtons = document.querySelectorAll('.nav-btn');
                                     const button = navButtons[buttons[hash]];
-                                    
+
                                     if (button) {
                                         setTimeout(() => {
                                             showPage(hash, button);
@@ -737,7 +830,7 @@
             Papa.parse(file, {
                 header: true,
                 skipEmptyLines: true,
-                encoding: 'ISO-8859-1',
+                encoding: 'UTF-8',
                 delimiter: ';',
                 complete: function(results) {
                     if (results.errors.length > 0) {
@@ -745,7 +838,7 @@
                         return;
                     }
 
-                    csvData = results.data;
+                    csvData = normalizeKeys(results.data);
                     localStorage.setItem('csvData', JSON.stringify(csvData));
                     initializeDataDisplay();
                     
@@ -763,38 +856,37 @@
             const tbody = document.getElementById('lotsTableBody');
             tbody.innerHTML = '';
 
-            filteredData.forEach(row => {
+            filteredData.forEach(function(row, index) {
                 const tr = document.createElement('tr');
-                
-                const copNum = row['N° cop'] || '';
-                const owner = row['Copropriétaire'] || '';
+
+                const copNum = row['N\u00b0 cop'] || '';
+                const owner = row['Copropri\u00e9taire'] || '';
                 const type = row['Type'] || '';
                 const description = row['Description'] || '';
-                const lotNum = row['N° lot'] || '';
+                const lotNum = row['N\u00b0 lot'] || '';
                 const escalier = row['Escalier'] || '';
                 const etage = row['Etage'] || '';
-                const facade = row['Façade'] || '';
+                const facade = row['Fa\u00e7ade'] || '';
                 const porteCave = row['Porte cave'] || '';
-                const planNum = row['N° plan'] || '';
-                const chargesGen = row['Clé 1 : charges générales'] || '';
-                const chargesAsc = row['Clé 3 : ascenceurs'] || '';
-                const descriptionComplete = row['Description complète'] || '';
+                const planNum = row['N\u00b0 plan'] || '';
+                const chargesGen = row['Cl\u00e9 1 : charges g\u00e9n\u00e9rales'] || '';
+                const chargesAsc = row['Cl\u00e9 3 : ascenceurs'] || '';
 
-                tr.innerHTML = `
-                    <td>${copNum}</td>
-                    <td>${owner}</td>
-                    <td>${type}</td>
-                    <td>${description}</td>
-                    <td>${lotNum}</td>
-                    <td>${escalier}</td>
-                    <td>${etage}</td>
-                    <td>${facade}</td>
-                    <td>${porteCave}</td>
-                    <td>${planNum}</td>
-                    <td>${chargesGen}</td>
-                    <td>${chargesAsc}</td>
-                    <td>${descriptionComplete}</td>
-                `;
+                tr.innerHTML =
+                    '<td>' + copNum + '</td>' +
+                    '<td>' + owner + '</td>' +
+                    '<td>' + type + '</td>' +
+                    '<td>' + description + '</td>' +
+                    '<td>' + lotNum + '</td>' +
+                    '<td>' + escalier + '</td>' +
+                    '<td>' + etage + '</td>' +
+                    '<td>' + facade + '</td>' +
+                    '<td>' + porteCave + '</td>' +
+                    '<td>' + planNum + '</td>' +
+                    '<td>' + chargesGen + '</td>' +
+                    '<td>' + chargesAsc + '</td>' +
+                    '<td><button class="btn-fiche" onclick="openFiche(' + index + ')">&#128196; Fiche</button></td>';
+
                 tbody.appendChild(tr);
             });
         }
@@ -1176,6 +1268,58 @@
             document.querySelector('.container').insertBefore(successDiv, document.querySelector('#navigation'));
 
             setTimeout(() => successDiv.remove(), 3000);
+        }
+
+        function openFiche(index) {
+            const row = filteredData[index];
+            if (!row) return;
+
+            const keys = Object.keys(row);
+
+            // Titre
+            const lotNum = row[keys.find(k => k.trim() === 'N\u00b0 lot')] || '';
+            const owner = row[keys.find(k => k.trim() === 'Copropri\u00e9taire')] || '';
+            document.getElementById('modal-title').textContent = 'Lot n\u00b0 ' + lotNum + ' \u2014 ' + owner;
+
+            const fieldDefs = [
+                ['N\u00b0 Copropri\u00e9taire', 'N\u00b0 cop'],
+                ['Copropri\u00e9taire',         'Copropri\u00e9taire'],
+                ['Type',                         'Type'],
+                ['Description',                  'Description'],
+                ['N\u00b0 Lot',                  'N\u00b0 lot'],
+                ['Escalier',                     'Escalier'],
+                ['\u00c9tage',                   'Etage'],
+                ['Fa\u00e7ade',                  'Fa\u00e7ade'],
+                ['Porte cave',                   'Porte cave'],
+                ['N\u00b0 Plan',                 'N\u00b0 plan'],
+                ['Cl\u00e9 1 : charges g\u00e9n\u00e9rales', 'Cl\u00e9 1 : charges g\u00e9n\u00e9rales'],
+                ['Cl\u00e9 3 : ascenseurs',      'Cl\u00e9 3 : ascenceurs'],
+            ];
+
+            var html = '';
+            fieldDefs.forEach(function(fd) {
+                var matchKey = keys.find(function(k) { return k.trim() === fd[1]; });
+                var val = matchKey ? (row[matchKey] || '\u2014') : '\u2014';
+                html += '<div class="modal-field">' +
+                    '<span class="modal-label">' + fd[0] + '</span>' +
+                    '<span class="modal-value">' + val + '</span>' +
+                    '</div>';
+            });
+
+            var descKey = keys.find(function(k) { return k.trim() === 'Description compl\u00e8te'; });
+            var desc = descKey ? (row[descKey] || '') : '';
+            if (desc) {
+                html += '<div class="modal-description">' + desc + '</div>';
+            }
+
+            document.getElementById('modal-body').innerHTML = html;
+            document.getElementById('ficheModal').classList.add('active');
+        }
+
+        function closeFicheModal(event) {
+            if (event.target === document.getElementById('ficheModal')) {
+                document.getElementById('ficheModal').classList.remove('active');
+            }
         }
     </script>
 </body>

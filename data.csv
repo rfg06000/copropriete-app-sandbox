@@ -121,4 +121,4 @@ N° cop;Copropriétaire;Type;Description;N° lot;Escalier;Etage;Façade;Porte ca
 97;RUOTOLO Diego (Monsieur);Appar;T4;320;2;5;Ouest, Nord;;2;440;650;Un appartement composé de quatre pièces principales, deux salles de bains, deux water closet, cuisine, entrée, façades ouest, nord, figurant sous le numéro deux du plan
 90;MATUA Pavel (M. ou Mme);Appar;T3;321;2;5;Sud, Nord;;3;270;490;Un appartement composé de trois pièces principales, cuisine, entrée, salle de bains, water closet, façades sud, nord, figurant sous le numéro trois du plan
 37;MILANESE F. (Madame);Appar;T3;322;3;5;Sud, Est, Nord;;4;335;610;Un appartement composé de trois pièces principales, cuisine, entrée, salle de bains water closet, façades sud, est et nord,
-64;FILIPPI Sylvie (Madame);Appar;T2;323;2;rdc; ;;0;123;0;Un appartement composé de deux piéces principales (cf. modifcatif EDD 2025)
+64;FILIPPI Sylvie (Madame);Appar;T2;323;2;rdc;Est, Ouest;;0;123;0;Un appartement composé de deux piéces principales (cf. modifcatif EDD 2025)
