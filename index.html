@@ -441,7 +441,7 @@
             <button class="nav-btn" onclick="showPage('admin', this)">Administration</button>
             <button class="nav-btn active" onclick="showPage('lots', this)">Liste des lots</button>
             <button class="nav-btn" onclick="showPage('calcul', this)">Calcul de votre QP des travaux</button>
-            <button class="nav-btn" onclick="showPage('cave', this)">Numéro de cave</button>
+            <button class="nav-btn" onclick="showPage('suivi', this)">Points de suivi</button>
         </div>
 
         <div id="admin-page" class="page">
@@ -571,27 +571,58 @@
             </div>
         </div>
 
-        <div id="cave-page" class="page">
-            <div id="no-data-cave-message" class="data-status">
-                Aucun fichier CSV n'a été chargé. Veuillez contacter l'administrateur.
+        <div id="suivi-page" class="page">
+            <div id="suivi-login" class="login-form">
+                <h3>Accès Points de suivi</h3>
+                <div class="password-container">
+                    <input type="password" id="suiviPasswordInput" placeholder="Mot de passe" onkeypress="handleSuiviPasswordKeypress(event)">
+                    <button type="button" class="password-toggle" onclick="toggleSuiviPassword()">👁️</button>
+                </div>
+                <button class="login-btn" onclick="checkSuiviPassword()">Se connecter</button>
+                <div id="suivi-login-error" class="error" style="display: none; margin-top: 15px;">
+                    Mot de passe incorrect
+                </div>
             </div>
 
-            <div id="cave-content" style="display: none;">
-                <div class="calc-form">
-                    <h3 style="color: #2c5aa0; margin-bottom: 20px;">Saisie du numéro de cave</h3>
-                    <p style="margin-bottom: 20px; color: #666;">Sélectionnez votre nom pour voir vos caves et saisir les numéros de porte.</p>
-                    
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="caveOwnerSelect">Votre nom :</label>
-                            <select id="caveOwnerSelect" onchange="loadOwnerCaveLots()">
-                                <option value="">-- Choisir votre nom --</option>
-                            </select>
-                        </div>
+            <div id="suivi-content" style="display: none;">
+                <div class="filters">
+                    <div class="filter-group">
+                        <label>Filtrer par statut :</label>
+                        <select id="suiviStatutFilter" onchange="filterSuiviTable()">
+                            <option value="">-- Tous --</option>
+                            <option value="Ouvert">Ouvert</option>
+                            <option value="Clos">Clos</option>
+                        </select>
                     </div>
+                    <div class="filter-group">
+                        <label>Filtrer par responsable :</label>
+                        <input type="text" id="suiviResponsableFilter" placeholder="Responsable" oninput="filterSuiviTable()">
+                    </div>
+                    <div class="filter-group">
+                        <label>Recherche (sujet) :</label>
+                        <input type="text" id="suiviSearchFilter" placeholder="Mot-clé" oninput="filterSuiviTable()">
+                    </div>
+                    <div class="filter-group">
+                        <label>&nbsp;</label>
+                        <button class="calc-btn" onclick="openNouveauPointForm()">+ Nouveau point</button>
+                    </div>
+                </div>
 
-                    <div id="lotSelection" style="display: none;">
-                    </div>
+                <div class="table-container">
+                    <table id="suiviTable">
+                        <thead>
+                            <tr>
+                                <th onclick="sortSuiviTableByColumn(0)">N° ↕</th>
+                                <th onclick="sortSuiviTableByColumn(1)">Sujet ↕</th>
+                                <th>Synthèse (dernier suivi)</th>
+                                <th onclick="sortSuiviTableByColumn(3)">Statut ↕</th>
+                                <th onclick="sortSuiviTableByColumn(4)">Responsable ↕</th>
+                                <th onclick="sortSuiviTableByColumn(5)">Échéance ↕</th>
+                                <th>Fiche</th>
+                            </tr>
+                        </thead>
+                        <tbody id="suiviTableBody"></tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -606,14 +637,126 @@
         </div>
     </div>
 
+    <!-- Modale nouveau point de suivi -->
+    <div class="modal-overlay" id="nouveauPointModal" onclick="closeNouveauPointModal(event)">
+        <div class="modal">
+            <button class="modal-close" onclick="document.getElementById('nouveauPointModal').classList.remove('active')">✕</button>
+            <h3>Nouveau point de suivi</h3>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>Sujet</label>
+                <input type="text" id="np-sujet">
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>Description (dernier état connu)</label>
+                <textarea id="np-description" rows="3" style="width:100%;padding:10px;border:2px solid #e1e5e9;border-radius:5px;font-family:'Aptos',sans-serif;"></textarea>
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>Résumé (20 caractères max, affiché dans la liste)</label>
+                <input type="text" id="np-resume" maxlength="20" placeholder="Ex: RV le 15/07">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Date d'ouverture</label>
+                    <input type="date" id="np-dateOuverture">
+                </div>
+                <div class="form-group">
+                    <label>Statut</label>
+                    <select id="np-statut">
+                        <option>Ouvert</option><option>Clos</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Responsable</label>
+                    <input type="text" id="np-responsable" placeholder="CT, CS, copropriétaire, prestataire...">
+                </div>
+                <div class="form-group">
+                    <label>Date d'échéance</label>
+                    <input type="date" id="np-dateEcheance">
+                </div>
+                <div class="form-group">
+                    <label>Priorité</label>
+                    <select id="np-priorite">
+                        <option value="">--</option><option>Haute</option><option>Moyenne</option><option>Basse</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>Document (lien)</label>
+                <input type="text" id="np-document" placeholder="Lien Drive/OneDrive...">
+            </div>
+            <button class="calc-btn" onclick="submitNouveauPoint()">Créer le point</button>
+        </div>
+    </div>
+
+    <!-- Modale fiche point de suivi (détail + historique + ajout de suivi) -->
+    <div class="modal-overlay" id="suiviFicheModal" onclick="closeSuiviFicheModal(event)">
+        <div class="modal">
+            <button class="modal-close" onclick="document.getElementById('suiviFicheModal').classList.remove('active')">✕</button>
+            <h3 id="suivi-modal-title" style="display:flex;align-items:center;gap:10px;">
+                <span id="suivi-modal-title-text">Point de suivi</span>
+                <button type="button" onclick="toggleRenameSuivi()" style="background:none;border:none;cursor:pointer;font-size:16px;" title="Renommer le sujet">✎</button>
+            </h3>
+            <div id="suivi-rename-form" style="display:none;margin-bottom:15px;">
+                <input type="text" id="suivi-rename-sujet" style="width:100%;padding:10px;border:2px solid #e1e5e9;border-radius:5px;font-family:'Aptos',sans-serif;margin-bottom:8px;">
+                <button class="calc-btn" onclick="submitRenamePoint()" style="padding:6px 15px;font-size:14px;">Enregistrer</button>
+            </div>
+            <div id="suivi-modal-body"></div>
+            <div style="margin-top:20px;border-top:2px solid #e1e5e9;padding-top:15px;">
+                <h4 style="color:#2c5aa0;margin-bottom:10px;">Historique</h4>
+                <div id="suivi-historique-list" style="max-height:200px;overflow-y:auto;margin-bottom:15px;"></div>
+
+                <h4 style="color:#2c5aa0;margin-bottom:10px;">Ajouter un suivi</h4>
+                <textarea id="suivi-new-comment" rows="2" placeholder="Note détaillée (obligatoire)..." style="width:100%;padding:10px;border:2px solid #e1e5e9;border-radius:5px;font-family:'Aptos',sans-serif;margin-bottom:10px;"></textarea>
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label>Résumé (20 caractères max, affiché dans la liste)</label>
+                    <input type="text" id="suivi-new-resume" maxlength="20" placeholder="Ex: RV le 15/07">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Responsable</label>
+                        <input type="text" id="suivi-new-responsable">
+                    </div>
+                    <div class="form-group">
+                        <label>Date d'échéance</label>
+                        <input type="date" id="suivi-new-echeance">
+                    </div>
+                    <div class="form-group">
+                        <label>Priorité</label>
+                        <select id="suivi-new-priorite">
+                            <option value="">--</option><option>Haute</option><option>Moyenne</option><option>Basse</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Statut</label>
+                        <select id="suivi-new-statut">
+                            <option>Ouvert</option><option>Clos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Document (lien)</label>
+                        <input type="text" id="suivi-new-document" placeholder="Lien Drive/OneDrive...">
+                    </div>
+                </div>
+                <button class="calc-btn" onclick="submitAjoutSuivi()">Ajouter</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <script>
-        // IMPORTANT : REMPLACEZ PAR VOTRE URL GOOGLE SCRIPT
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxka-_FU79ih1UxYt82G-BO9nDcg87LHrVvrk3M29gM-wwPRIA42QOKJ8yx-6ER7t11/exec';
+        const SUIVI_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwFsP0iXSLaPSDwSbrc8m-OKa0-mSfZmjuFjbScYjYv9TLdUdRPFeqm_eV9S4EC8L17kQ/exec';
         let csvData = [];
         let filteredData = [];
         let isAdminLoggedIn = false;
-        let caveData = [];
+        let suiviPoints = [];
+        let suiviHistorique = [];
+        let filteredSuiviData = [];
+        let isSuiviLoggedIn = false;
+        let currentOpenSuiviId = null;
 
         window.addEventListener('load', function() {
             const savedData = localStorage.getItem('csvData');
@@ -642,7 +785,7 @@
                         'admin': 0,
                         'lots': 1,
                         'calcul': 2,
-                        'cave': 3
+                        'suivi': 3
                     };
                     
                     if (buttons.hasOwnProperty(hash)) {
@@ -697,13 +840,8 @@
             
             document.getElementById('lots-content').style.display = 'block';
             document.getElementById('calc-content').style.display = 'block';
-            document.getElementById('cave-content').style.display = 'block';
             document.getElementById('no-data-message').style.display = 'none';
             document.getElementById('no-data-calc-message').style.display = 'none';
-            document.getElementById('no-data-cave-message').style.display = 'none';
-            
-            loadCaveData();
-            populateCaveOwnerSelect();
         }
 
         function loadFromGitHub(silent = false) {
@@ -748,7 +886,7 @@
                                     'admin': 0,
                                     'lots': 1,
                                     'calcul': 2,
-                                    'cave': 3
+                                    'suivi': 3
                                 };
 
                                 if (buttons.hasOwnProperty(hash)) {
@@ -808,8 +946,8 @@
                 subtitle.textContent = 'Liste des lots de la copropriété';
             } else if (page === 'calcul') {
                 subtitle.textContent = 'Calcul de votre quote-part des travaux';
-            } else if (page === 'cave') {
-                subtitle.textContent = 'Saisie du numéro de cave';
+            } else if (page === 'suivi') {
+                subtitle.textContent = 'Points de suivi';
             }
 
             if (page !== 'admin') {
@@ -818,6 +956,16 @@
                 document.getElementById('passwordInput').value = '';
                 document.getElementById('login-error').style.display = 'none';
                 isAdminLoggedIn = false;
+            }
+
+            if (page !== 'suivi') {
+                document.getElementById('suivi-login').style.display = 'block';
+                document.getElementById('suivi-content').style.display = 'none';
+                document.getElementById('suiviPasswordInput').value = '';
+                document.getElementById('suivi-login-error').style.display = 'none';
+                isSuiviLoggedIn = false;
+            } else if (isSuiviLoggedIn) {
+                loadSuiviData();
             }
         }
 
@@ -917,22 +1065,6 @@
                 option.value = owner;
                 option.textContent = owner;
                 select.appendChild(option);
-            });
-        }
-
-        function populateCaveOwnerSelect() {
-            const caveSelect = document.getElementById('caveOwnerSelect');
-            
-            caveSelect.innerHTML = '<option value="">-- Choisir votre nom --</option>';
-
-            const owners = [...new Set(csvData.map(row => row['Copropriétaire'] || ''))]
-                .filter(owner => owner !== '').sort();
-
-            owners.forEach(owner => {
-                const option = document.createElement('option');
-                option.value = owner;
-                option.textContent = owner;
-                caveSelect.appendChild(option);
             });
         }
 
@@ -1082,168 +1214,374 @@
             resultsSection.style.display = 'block';
         }
 
-        function loadOwnerCaveLots() {
-            const owner = document.getElementById('caveOwnerSelect').value;
-            const lotSelection = document.getElementById('lotSelection');
-            
-            if (!owner) {
-                lotSelection.style.display = 'none';
-                return;
-            }
+        function toggleSuiviPassword() {
+            const passwordInput = document.getElementById('suiviPasswordInput');
+            const toggleButton = document.querySelector('#suivi-login .password-toggle');
 
-            const ownerCaves = csvData.filter(row => {
-                const isSameOwner = row['Copropriétaire'] === owner;
-                const type = (row['Type'] || '').toLowerCase();
-                const description = (row['Description'] || '').toLowerCase();
-                const isCave = type.includes('cave') || description.includes('cave');
-                return isSameOwner && isCave;
-            });
-            
-            if (ownerCaves.length === 0) {
-                lotSelection.innerHTML = '<p style="color: #666;">Aucune cave trouvée pour ce copropriétaire.</p>';
-                lotSelection.style.display = 'block';
-                return;
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleButton.textContent = '🙈';
+            } else {
+                passwordInput.type = 'password';
+                toggleButton.textContent = '👁️';
             }
-
-            let html = '<div style="margin-bottom: 20px;">';
-            html += '<h4 style="color: #2c5aa0; margin-bottom: 15px;">Vos caves :</h4>';
-            
-            ownerCaves.forEach(cave => {
-                const lotNum = cave['N° lot'] || '';
-                const description = cave['Description'] || '';
-                const type = cave['Type'] || '';
-                const currentCaveNumber = cave['Porte cave'] || '';
-                
-                html += `
-                    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px; padding: 15px; background: white; border-radius: 5px; border: 2px solid #e1e5e9;">
-                        <div style="flex: 1;">
-                            <strong>Lot ${lotNum}</strong><br>
-                            <small style="color: #666;">${type} - ${description}</small>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <input type="number" 
-                                   id="cave_${lotNum}" 
-                                   value="${currentCaveNumber}"
-                                   min="1" 
-                                   max="99" 
-                                   placeholder="N° porte"
-                                   style="width: 100px; padding: 8px; border: 2px solid #e1e5e9; border-radius: 5px; font-family: 'Aptos', sans-serif; font-size: 14px;">
-                            <button onclick="saveSingleCave('${owner}', '${lotNum}')" 
-                                    class="calc-btn" 
-                                    style="padding: 8px 15px; font-size: 14px;">
-                                Enregistrer
-                            </button>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            html += '</div>';
-            
-            lotSelection.innerHTML = html;
-            lotSelection.style.display = 'block';
         }
 
-        function saveSingleCave(owner, lotNum) {
-            const input = document.getElementById(`cave_${lotNum}`);
-            const caveNumber = input.value;
+        function handleSuiviPasswordKeypress(event) {
+            if (event.key === 'Enter') {
+                checkSuiviPassword();
+            }
+        }
 
-            if (!caveNumber) {
-                showError('Veuillez saisir un numéro de cave');
+        function checkSuiviPassword() {
+            const password = document.getElementById('suiviPasswordInput').value;
+            const errorDiv = document.getElementById('suivi-login-error');
+
+            if (password === 'RFG123') {
+                isSuiviLoggedIn = true;
+                document.getElementById('suivi-login').style.display = 'none';
+                document.getElementById('suivi-content').style.display = 'block';
+                errorDiv.style.display = 'none';
+                loadSuiviData();
+            } else {
+                errorDiv.style.display = 'block';
+                document.getElementById('suiviPasswordInput').value = '';
+            }
+        }
+
+        function loadSuiviData() {
+            fetch(SUIVI_SCRIPT_URL + '?action=list')
+                .then(response => response.json())
+                .then(result => {
+                    if (!result.ok) {
+                        showError('Erreur lors du chargement des points de suivi : ' + result.error);
+                        return;
+                    }
+                    suiviPoints = result.points;
+                    suiviHistorique = result.historique;
+                    filteredSuiviData = [...suiviPoints];
+                    populateSuiviTable();
+                })
+                .catch(error => {
+                    showError('Impossible de charger les points de suivi. Vérifiez votre connexion internet.');
+                    console.error('Erreur:', error);
+                });
+        }
+
+        function formatDateFR(isoOrDateString) {
+            if (!isoOrDateString) return '';
+            const d = new Date(isoOrDateString);
+            if (isNaN(d.getTime())) return isoOrDateString;
+            return d.toLocaleDateString('fr-FR');
+        }
+
+        function computeSynthese(pointId) {
+            const entries = suiviHistorique
+                .filter(h => String(h.PointId) === String(pointId))
+                .sort((a, b) => new Date(b.Date) - new Date(a.Date));
+            return entries.length ? (entries[0].Resume || '—') : '—';
+        }
+
+        function isEcheanceDepassee(point) {
+            if (!point.DateEcheance || point.Statut === 'Clos') return false;
+            const echeance = new Date(point.DateEcheance);
+            if (isNaN(echeance.getTime())) return false;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return echeance < today;
+        }
+
+        function populateSuiviTable() {
+            const tbody = document.getElementById('suiviTableBody');
+            tbody.innerHTML = '';
+
+            const sorted = [...filteredSuiviData].sort((a, b) => {
+                if (!a.DateEcheance && !b.DateEcheance) return 0;
+                if (!a.DateEcheance) return 1;
+                if (!b.DateEcheance) return -1;
+                return new Date(a.DateEcheance) - new Date(b.DateEcheance);
+            });
+
+            sorted.forEach(point => {
+                const tr = document.createElement('tr');
+                const echeanceHtml = isEcheanceDepassee(point)
+                    ? '<span style="color:#c0392b;font-weight:bold;">' + formatDateFR(point.DateEcheance) + '</span>'
+                    : formatDateFR(point.DateEcheance);
+
+                tr.innerHTML =
+                    '<td>' + (point.ID || '') + '</td>' +
+                    '<td>' + (point.Sujet || '') + '</td>' +
+                    '<td>' + computeSynthese(point.ID) + '</td>' +
+                    '<td>' + (point.Statut || '') + '</td>' +
+                    '<td>' + (point.Responsable || '') + '</td>' +
+                    '<td>' + echeanceHtml + '</td>' +
+                    '<td><button class="btn-fiche" onclick="openSuiviFiche(\'' + point.ID + '\')">📄 Fiche</button></td>';
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterSuiviTable() {
+            const statutFilter = document.getElementById('suiviStatutFilter').value;
+            const responsableFilter = document.getElementById('suiviResponsableFilter').value.toLowerCase();
+            const searchFilter = document.getElementById('suiviSearchFilter').value.toLowerCase();
+
+            filteredSuiviData = suiviPoints.filter(point => {
+                const statutMatch = statutFilter === '' || point.Statut === statutFilter;
+                const responsableMatch = (point.Responsable || '').toLowerCase().includes(responsableFilter);
+                const searchMatch = (point.Sujet || '').toLowerCase().includes(searchFilter);
+                return statutMatch && responsableMatch && searchMatch;
+            });
+
+            populateSuiviTable();
+        }
+
+        function sortSuiviTableByColumn(columnIndex) {
+            const table = document.getElementById('suiviTable');
+            const tbody = table.tBodies[0];
+            const rows = Array.from(tbody.rows);
+
+            rows.sort((a, b) => {
+                const aValue = a.cells[columnIndex].textContent.trim();
+                const bValue = b.cells[columnIndex].textContent.trim();
+
+                const aNum = parseFloat(aValue);
+                const bNum = parseFloat(bValue);
+
+                if (!isNaN(aNum) && !isNaN(bNum)) {
+                    return aNum - bNum;
+                }
+
+                return aValue.localeCompare(bValue);
+            });
+
+            rows.forEach(row => tbody.appendChild(row));
+        }
+
+        function openNouveauPointForm() {
+            document.getElementById('np-sujet').value = '';
+            document.getElementById('np-description').value = '';
+            document.getElementById('np-resume').value = '';
+            document.getElementById('np-dateOuverture').value = new Date().toISOString().slice(0, 10);
+            document.getElementById('np-statut').value = 'Ouvert';
+            document.getElementById('np-responsable').value = '';
+            document.getElementById('np-dateEcheance').value = '';
+            document.getElementById('np-priorite').value = '';
+            document.getElementById('np-document').value = '';
+            document.getElementById('nouveauPointModal').classList.add('active');
+        }
+
+        function closeNouveauPointModal(event) {
+            if (event.target === document.getElementById('nouveauPointModal')) {
+                document.getElementById('nouveauPointModal').classList.remove('active');
+            }
+        }
+
+        function submitNouveauPoint() {
+            const sujet = document.getElementById('np-sujet').value.trim();
+            const resume = document.getElementById('np-resume').value.trim();
+            if (!sujet) {
+                showError('Le sujet est obligatoire');
+                return;
+            }
+            if (!resume) {
+                showError('Le résumé (20 caractères max) est obligatoire');
                 return;
             }
 
-            const caveNum = parseInt(caveNumber);
-            if (caveNum < 1 || caveNum > 99) {
-                showError('Le numéro de cave doit être entre 1 et 99');
-                return;
-            }
-
-            const existingCave = caveData.find(item => 
-                item.caveNumber === caveNum && item.lot !== lotNum
-            );
-
-            if (existingCave) {
-                showError(`Le numéro de cave ${caveNum} est déjà attribué au lot ${existingCave.lot} de ${existingCave.owner}.`);
-                return;
-            }
-
-            // Récupérer les infos du lot
-            const lot = csvData.find(row => row['N° lot'] === lotNum);
-            
-            // Préparer les données pour Google Sheets
             const data = {
-                owner: owner,
-                lot: lotNum,
-                type: lot['Type'] || '',
-                description: lot['Description'] || '',
-                caveNumber: caveNum
+                action: 'create',
+                sujet: sujet,
+                resume: resume,
+                description: document.getElementById('np-description').value,
+                dateOuverture: document.getElementById('np-dateOuverture').value,
+                statut: document.getElementById('np-statut').value,
+                responsable: document.getElementById('np-responsable').value,
+                dateEcheance: document.getElementById('np-dateEcheance').value,
+                priorite: document.getElementById('np-priorite').value,
+                document: document.getElementById('np-document').value
             };
 
-            // Envoyer à Google Sheets
-            fetch(GOOGLE_SCRIPT_URL, {
+            fetch(SUIVI_SCRIPT_URL, {
                 method: 'POST',
-                mode: 'no-cors',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify(data)
             })
-            .then(() => {
-                // Mise à jour locale (pour affichage)
-                const existingIndex = caveData.findIndex(item => 
-                    item.owner === owner && item.lot === lotNum
-                );
+                .then(response => response.json())
+                .then(result => {
+                    if (!result.ok) {
+                        showError('Erreur lors de la création du point : ' + result.error);
+                        return;
+                    }
+                    document.getElementById('nouveauPointModal').classList.remove('active');
+                    showSuccess('Point de suivi créé (n° ' + result.id + ')');
+                    loadSuiviData();
+                })
+                .catch(error => {
+                    showError('Erreur lors de l\'envoi. Vérifiez votre connexion internet.');
+                    console.error('Erreur:', error);
+                });
+        }
 
-                const newEntry = {
-                    owner: owner,
-                    lot: lotNum,
-                    caveNumber: caveNum,
-                    timestamp: new Date().toISOString()
-                };
+        function openSuiviFiche(id) {
+            const point = suiviPoints.find(p => String(p.ID) === String(id));
+            if (!point) return;
 
-                if (existingIndex >= 0) {
-                    caveData[existingIndex] = newEntry;
-                } else {
-                    caveData.push(newEntry);
-                }
+            currentOpenSuiviId = String(id);
 
-                localStorage.setItem('caveData', JSON.stringify(caveData));
-                
-                // Mettre à jour l'affichage dans le tableau
-                updateDataCSVWithCaveNumber(lotNum, caveNum);
-                
-                showSuccess(`✓ Numéro ${caveNum} enregistré pour le lot ${lotNum} et envoyé à Google Sheets`);
-                
-                loadOwnerCaveLots();
-            })
-            .catch(error => {
-                showError('Erreur lors de l\'envoi à Google Sheets. Vérifiez votre connexion internet.');
-                console.error('Erreur:', error);
+            document.getElementById('suivi-modal-title-text').textContent = 'Point n° ' + point.ID + ' — ' + point.Sujet;
+            document.getElementById('suivi-rename-form').style.display = 'none';
+            document.getElementById('suivi-rename-sujet').value = point.Sujet || '';
+
+            const fieldDefs = [
+                ['Date d\'ouverture', formatDateFR(point.DateOuverture)],
+                ['Statut', point.Statut],
+                ['Responsable', point.Responsable],
+                ['Date d\'échéance', formatDateFR(point.DateEcheance)],
+                ['Priorité', point.Priorite],
+                ['Description', point.Description]
+            ];
+
+            let html = '';
+            fieldDefs.forEach(fd => {
+                html += '<div class="modal-field">' +
+                    '<span class="modal-label">' + fd[0] + '</span>' +
+                    '<span class="modal-value">' + (fd[1] || '—') + '</span>' +
+                    '</div>';
             });
+
+            document.getElementById('suivi-modal-body').innerHTML = html;
+
+            renderSuiviHistoriqueList(id);
+
+            document.getElementById('suivi-new-comment').value = '';
+            document.getElementById('suivi-new-resume').value = '';
+            document.getElementById('suivi-new-responsable').value = '';
+            document.getElementById('suivi-new-echeance').value = '';
+            document.getElementById('suivi-new-priorite').value = '';
+            document.getElementById('suivi-new-statut').value = point.Statut || '';
+            document.getElementById('suivi-new-document').value = '';
+
+            document.getElementById('suiviFicheModal').classList.add('active');
         }
 
-        function updateDataCSVWithCaveNumber(lotNum, caveNumber) {
-            const rowIndex = csvData.findIndex(row => row['N° lot'] === lotNum);
-            if (rowIndex !== -1) {
-                csvData[rowIndex]['Porte cave'] = caveNumber.toString();
-                localStorage.setItem('csvData', JSON.stringify(csvData));
-                if (filteredData.length > 0) {
-                    filterTable();
-                }
+        function renderSuiviHistoriqueList(id) {
+            const entries = suiviHistorique
+                .filter(h => String(h.PointId) === String(id))
+                .sort((a, b) => new Date(b.Date) - new Date(a.Date));
+
+            let html = '';
+            if (entries.length === 0) {
+                html = '<p style="color: #666;">Aucun historique pour ce point.</p>';
+            }
+            entries.forEach(h => {
+                const date = h.Date ? formatDateFR(h.Date) + ' ' + new Date(h.Date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
+                let details = [];
+                if (h.Statut) details.push('Statut : ' + h.Statut);
+                if (h.Responsable) details.push('Responsable : ' + h.Responsable);
+                if (h.DateEcheance) details.push('Échéance : ' + formatDateFR(h.DateEcheance));
+                if (h.Priorite) details.push('Priorité : ' + h.Priorite);
+
+                html += '<div style="padding:10px 0;border-bottom:1px solid #e1e5e9;">' +
+                    '<div style="font-size:12px;color:#666;">' + date + '</div>' +
+                    (h.Resume ? '<div style="font-weight:600;color:#2c5aa0;">' + h.Resume + '</div>' : '') +
+                    '<div>' + (h.Note || '') + '</div>' +
+                    (details.length ? '<div style="font-size:13px;color:#2c5aa0;">' + details.join(' · ') + '</div>' : '') +
+                    (h.Document ? '<div><a href="' + h.Document + '" target="_blank">Pièce jointe</a></div>' : '') +
+                    '</div>';
+            });
+
+            document.getElementById('suivi-historique-list').innerHTML = html;
+        }
+
+        function closeSuiviFicheModal(event) {
+            if (event.target === document.getElementById('suiviFicheModal')) {
+                document.getElementById('suiviFicheModal').classList.remove('active');
             }
         }
 
-        function loadCaveData() {
-            const savedData = localStorage.getItem('caveData');
-            if (savedData) {
-                try {
-                    caveData = JSON.parse(savedData);
-                } catch (e) {
-                    console.log('Erreur lors du chargement des données de cave');
-                    caveData = [];
-                }
+        function submitAjoutSuivi() {
+            const note = document.getElementById('suivi-new-comment').value.trim();
+            const resume = document.getElementById('suivi-new-resume').value.trim();
+            const responsable = document.getElementById('suivi-new-responsable').value.trim();
+
+            if (!note) {
+                showError('La note est obligatoire pour ajouter un suivi');
+                return;
             }
+            if (!resume) {
+                showError('Le résumé (20 caractères max) est obligatoire');
+                return;
+            }
+            if (!responsable) {
+                showError('Le responsable est obligatoire pour ajouter un suivi');
+                return;
+            }
+
+            const data = {
+                action: 'ajoutSuivi',
+                id: currentOpenSuiviId,
+                note: note,
+                resume: resume,
+                responsable: responsable,
+                dateEcheance: document.getElementById('suivi-new-echeance').value,
+                priorite: document.getElementById('suivi-new-priorite').value,
+                statut: document.getElementById('suivi-new-statut').value,
+                document: document.getElementById('suivi-new-document').value
+            };
+
+            fetch(SUIVI_SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(data)
+            })
+                .then(response => response.json())
+                .then(result => {
+                    if (!result.ok) {
+                        showError('Erreur lors de l\'ajout du suivi : ' + result.error);
+                        return;
+                    }
+                    showSuccess('Suivi ajouté');
+                    loadSuiviData();
+                    setTimeout(() => openSuiviFiche(currentOpenSuiviId), 300);
+                })
+                .catch(error => {
+                    showError('Erreur lors de l\'envoi. Vérifiez votre connexion internet.');
+                    console.error('Erreur:', error);
+                });
+        }
+
+        function toggleRenameSuivi() {
+            const form = document.getElementById('suivi-rename-form');
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function submitRenamePoint() {
+            const sujet = document.getElementById('suivi-rename-sujet').value.trim();
+            if (!sujet) {
+                showError('Le sujet ne peut pas être vide');
+                return;
+            }
+
+            fetch(SUIVI_SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'renamePoint', id: currentOpenSuiviId, sujet: sujet })
+            })
+                .then(response => response.json())
+                .then(result => {
+                    if (!result.ok) {
+                        showError('Erreur lors du renommage : ' + result.error);
+                        return;
+                    }
+                    showSuccess('Sujet mis à jour');
+                    document.getElementById('suivi-rename-form').style.display = 'none';
+                    loadSuiviData();
+                    setTimeout(() => openSuiviFiche(currentOpenSuiviId), 300);
+                })
+                .catch(error => {
+                    showError('Erreur lors de l\'envoi. Vérifiez votre connexion internet.');
+                    console.error('Erreur:', error);
+                });
         }
 
         function showError(message) {
