@@ -1291,18 +1291,25 @@
         let oneDriveTargetInputId = null;
         let odFolderStack = [];
 
-        async function getMsalInstance() {
-            if (!msalInstance) {
-                msalInstance = new msal.PublicClientApplication({
-                    auth: {
-                        clientId: ONEDRIVE_CLIENT_ID,
-                        authority: 'https://login.microsoftonline.com/consumers',
-                        redirectUri: ONEDRIVE_REDIRECT_URI
-                    }
-                });
-                await msalInstance.initialize();
-            }
+        // MSAL doit être initialisé dès le chargement de la page (pas seulement au clic),
+        // car cette même page se recharge aussi à l'intérieur de la fenêtre popup Microsoft
+        // au retour de connexion — c'est cette instance-là qui détecte le retour et referme
+        // la popup automatiquement.
+        const msalReadyPromise = (async function () {
+            msalInstance = new msal.PublicClientApplication({
+                auth: {
+                    clientId: ONEDRIVE_CLIENT_ID,
+                    authority: 'https://login.microsoftonline.com/consumers',
+                    redirectUri: ONEDRIVE_REDIRECT_URI
+                }
+            });
+            await msalInstance.initialize();
+            await msalInstance.handleRedirectPromise();
             return msalInstance;
+        })();
+
+        async function getMsalInstance() {
+            return msalReadyPromise;
         }
 
         async function odGetToken() {
