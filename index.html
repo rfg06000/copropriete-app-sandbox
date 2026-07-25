@@ -393,6 +393,9 @@
             max-height: 90vh;
             overflow-y: auto;
         }
+        .modal.modal-wide {
+            max-width: 900px;
+        }
         .modal-close {
             position: absolute;
             top: 15px; right: 20px;
@@ -695,7 +698,7 @@
 
     <!-- Modale fiche point de suivi (détail + historique + ajout de suivi) -->
     <div class="modal-overlay" id="suiviFicheModal" onclick="closeSuiviFicheModal(event)">
-        <div class="modal">
+        <div class="modal modal-wide">
             <button class="modal-close" onclick="document.getElementById('suiviFicheModal').classList.remove('active')">✕</button>
             <h3 id="suivi-modal-title" style="display:flex;align-items:center;gap:10px;">
                 <span id="suivi-modal-title-text">Point de suivi</span>
@@ -724,20 +727,6 @@
                     <div class="form-group">
                         <label>Date d'échéance</label>
                         <input type="date" id="suivi-new-echeance">
-                    </div>
-                    <div class="form-group">
-                        <label>Priorité</label>
-                        <select id="suivi-new-priorite">
-                            <option value="">--</option><option>Haute</option><option>Moyenne</option><option>Basse</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Statut</label>
-                        <select id="suivi-new-statut">
-                            <option>Ouvert</option><option>Clos</option>
-                        </select>
                     </div>
                     <div class="form-group">
                         <label>Document (lien)</label>
@@ -1620,24 +1609,52 @@
             document.getElementById('suivi-rename-form').style.display = 'none';
             document.getElementById('suivi-rename-sujet').value = point.Sujet || '';
 
-            const fieldDefs = [
-                ['Date d\'ouverture', formatDateFR(point.DateOuverture)],
-                ['Statut', point.Statut],
-                ['Responsable', point.Responsable],
-                ['Date d\'échéance', formatDateFR(point.DateEcheance)],
-                ['Priorité', point.Priorite],
-                ['Description', point.Description]
-            ];
+            const body = document.getElementById('suivi-modal-body');
+            body.innerHTML = '';
 
-            let html = '';
-            fieldDefs.forEach(fd => {
-                html += '<div class="modal-field">' +
-                    '<span class="modal-label">' + fd[0] + '</span>' +
-                    '<span class="modal-value">' + (fd[1] || '—') + '</span>' +
-                    '</div>';
-            });
+            function addField(label, valueText) {
+                const div = document.createElement('div');
+                div.className = 'modal-field';
+                const lbl = document.createElement('span');
+                lbl.className = 'modal-label';
+                lbl.textContent = label;
+                const val = document.createElement('span');
+                val.className = 'modal-value';
+                val.textContent = valueText || '—';
+                div.appendChild(lbl);
+                div.appendChild(val);
+                body.appendChild(div);
+            }
 
-            document.getElementById('suivi-modal-body').innerHTML = html;
+            function addEditableField(label, field, options, currentValue) {
+                const div = document.createElement('div');
+                div.className = 'modal-field';
+                const lbl = document.createElement('span');
+                lbl.className = 'modal-label';
+                lbl.textContent = label;
+                const select = document.createElement('select');
+                select.style.cssText = 'padding:4px 8px;border:1px solid #e1e5e9;border-radius:5px;font-family:\'Aptos\',sans-serif;';
+                options.forEach(v => {
+                    const opt = document.createElement('option');
+                    opt.value = v;
+                    opt.textContent = v || '--';
+                    if (v === (currentValue || '')) opt.selected = true;
+                    select.appendChild(opt);
+                });
+                select.onchange = function () {
+                    quickUpdatePointField(id, field, select.value, label);
+                };
+                div.appendChild(lbl);
+                div.appendChild(select);
+                body.appendChild(div);
+            }
+
+            addField('Date d\'ouverture', formatDateFR(point.DateOuverture));
+            addEditableField('Statut', 'statut', ['Ouvert', 'Clos'], point.Statut);
+            addField('Responsable', point.Responsable);
+            addField('Date d\'échéance', formatDateFR(point.DateEcheance));
+            addEditableField('Priorité', 'priorite', ['', 'Haute', 'Moyenne', 'Basse'], point.Priorite);
+            addField('Description', point.Description);
 
             renderSuiviHistoriqueList(id);
 
@@ -1645,11 +1662,38 @@
             document.getElementById('suivi-new-resume').value = '';
             document.getElementById('suivi-new-responsable').value = '';
             document.getElementById('suivi-new-echeance').value = '';
-            document.getElementById('suivi-new-priorite').value = '';
-            document.getElementById('suivi-new-statut').value = point.Statut || '';
             document.getElementById('suivi-new-document').value = '';
 
             document.getElementById('suiviFicheModal').classList.add('active');
+        }
+
+        function quickUpdatePointField(id, field, value, label) {
+            const payload = {
+                action: 'ajoutSuivi',
+                id: id,
+                note: label + ' modifié : ' + (value || '(vide)')
+            };
+            payload[field] = value;
+
+            fetch(SUIVI_SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(payload)
+            })
+                .then(response => response.json())
+                .then(result => {
+                    if (!result.ok) {
+                        showError('Erreur lors de la mise à jour : ' + result.error);
+                        return;
+                    }
+                    showSuccess(label + ' mis à jour');
+                    loadSuiviData();
+                    setTimeout(() => openSuiviFiche(id), 300);
+                })
+                .catch(error => {
+                    showError('Erreur lors de l\'envoi. Vérifiez votre connexion internet.');
+                    console.error('Erreur:', error);
+                });
         }
 
         function renderSuiviHistoriqueList(id) {
@@ -1677,30 +1721,35 @@
                 if (h.Priorite) details.push('Priorité : ' + h.Priorite);
 
                 const entryDiv = document.createElement('div');
-                entryDiv.style.cssText = 'padding:10px 0;border-bottom:1px solid #e1e5e9;';
+                entryDiv.style.cssText = 'padding:14px 0;border-bottom:2px solid #d5dce3;';
 
                 const headerRow = document.createElement('div');
-                headerRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;';
-                const dateDiv = document.createElement('div');
-                dateDiv.style.cssText = 'font-size:12px;color:#666;';
-                dateDiv.textContent = date;
-                const editBtn = document.createElement('button');
-                editBtn.type = 'button';
-                editBtn.textContent = '✎ Modifier';
-                editBtn.style.cssText = 'background:none;border:none;cursor:pointer;color:#4a90e2;font-size:12px;';
-                editBtn.onclick = () => toggleEditHisto(h.HistoId);
-                headerRow.appendChild(dateDiv);
-                headerRow.appendChild(editBtn);
-                entryDiv.appendChild(headerRow);
+                headerRow.style.cssText = 'display:flex;justify-content:space-between;align-items:flex-start;gap:10px;';
 
+                const resumeCol = document.createElement('div');
                 if (h.Resume) {
                     const resumeDiv = document.createElement('div');
                     resumeDiv.style.cssText = 'font-weight:600;color:#2c5aa0;';
                     resumeDiv.textContent = h.Resume;
-                    entryDiv.appendChild(resumeDiv);
+                    resumeCol.appendChild(resumeDiv);
                 }
+                const dateDiv = document.createElement('div');
+                dateDiv.style.cssText = 'font-size:12px;color:#666;';
+                dateDiv.textContent = date;
+                resumeCol.appendChild(dateDiv);
+
+                const editBtn = document.createElement('button');
+                editBtn.type = 'button';
+                editBtn.textContent = '✎ Modifier';
+                editBtn.style.cssText = 'background:none;border:none;cursor:pointer;color:#4a90e2;font-size:12px;white-space:nowrap;';
+                editBtn.onclick = () => toggleEditHisto(h.HistoId);
+
+                headerRow.appendChild(resumeCol);
+                headerRow.appendChild(editBtn);
+                entryDiv.appendChild(headerRow);
 
                 const noteDiv = document.createElement('div');
+                noteDiv.style.cssText = 'margin-top:6px;';
                 noteDiv.textContent = h.Note || '';
                 entryDiv.appendChild(noteDiv);
 
@@ -1867,8 +1916,6 @@
                 resume: resume,
                 responsable: responsable,
                 dateEcheance: document.getElementById('suivi-new-echeance').value,
-                priorite: document.getElementById('suivi-new-priorite').value,
-                statut: document.getElementById('suivi-new-statut').value,
                 document: document.getElementById('suivi-new-document').value
             };
 
@@ -1927,26 +1974,32 @@
                 });
         }
 
+        function getMessageContainer() {
+            const activeModal = document.querySelector('.modal-overlay.active .modal');
+            if (activeModal) return { parent: activeModal, before: activeModal.firstChild };
+            return { parent: document.querySelector('.container'), before: document.querySelector('#navigation') };
+        }
+
         function showError(message) {
-            const existing = document.querySelector('.error');
-            if (existing) existing.remove();
+            document.querySelectorAll('.error').forEach(e => e.remove());
 
             const errorDiv = document.createElement('div');
             errorDiv.className = 'error';
             errorDiv.textContent = message;
-            document.querySelector('.container').insertBefore(errorDiv, document.querySelector('#navigation'));
+            const target = getMessageContainer();
+            target.parent.insertBefore(errorDiv, target.before);
 
             setTimeout(() => errorDiv.remove(), 5000);
         }
 
         function showSuccess(message) {
-            const existing = document.querySelector('.success');
-            if (existing) existing.remove();
+            document.querySelectorAll('.success').forEach(e => e.remove());
 
             const successDiv = document.createElement('div');
             successDiv.className = 'success';
             successDiv.textContent = message;
-            document.querySelector('.container').insertBefore(successDiv, document.querySelector('#navigation'));
+            const target = getMessageContainer();
+            target.parent.insertBefore(successDiv, target.before);
 
             setTimeout(() => successDiv.remove(), 3000);
         }
