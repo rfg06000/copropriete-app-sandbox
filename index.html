@@ -752,8 +752,18 @@
         </div>
     </div>
 
+    <!-- Modale sélecteur OneDrive (navigation en lecture seule dans son propre OneDrive) -->
+    <div class="modal-overlay" id="oneDrivePickerModal">
+        <div class="modal">
+            <button class="modal-close" onclick="closeOneDrivePicker()">✕</button>
+            <h3>Choisir un fichier OneDrive</h3>
+            <div id="od-breadcrumb" style="margin-bottom:12px;font-size:13px;color:#666;"></div>
+            <div id="od-file-list" style="max-height:350px;overflow-y:auto;border:1px solid #e1e5e9;border-radius:5px;"></div>
+        </div>
+    </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-    <script src="https://js.live.net/v7.2/OneDrive.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@5.17.1/lib/msal-browser.min.js"></script>
     <script>
         const SUIVI_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzul9-VD8KaC8obVeFE9z9JNrn0D1eolciTjaDvbVrGFwVvdOos9U_HKCJi5VnhsCKd/exec';
         const ONEDRIVE_CLIENT_ID = '0552433d-42fa-46e7-bbb9-13c72e253f17';
@@ -1277,42 +1287,165 @@
                 });
         }
 
-        function pickFromOneDrive(targetInputId) {
-            if (typeof OneDrive === 'undefined') {
-                showError('Le sélecteur OneDrive n\'a pas pu se charger. Vérifiez votre connexion internet.');
+        let msalInstance = null;
+        let oneDriveTargetInputId = null;
+        let odFolderStack = [];
+
+        function getMsalInstance() {
+            if (!msalInstance) {
+                msalInstance = new msal.PublicClientApplication({
+                    auth: {
+                        clientId: ONEDRIVE_CLIENT_ID,
+                        authority: 'https://login.microsoftonline.com/consumers',
+                        redirectUri: ONEDRIVE_REDIRECT_URI
+                    }
+                });
+            }
+            return msalInstance;
+        }
+
+        async function odGetToken() {
+            const app = getMsalInstance();
+            const account = app.getAllAccounts()[0];
+            if (!account) {
+                const result = await app.loginPopup({ scopes: ['Files.Read'] });
+                return result.accessToken;
+            }
+            try {
+                const result = await app.acquireTokenSilent({ scopes: ['Files.Read'], account: account });
+                return result.accessToken;
+            } catch (e) {
+                const result = await app.acquireTokenPopup({ scopes: ['Files.Read'] });
+                return result.accessToken;
+            }
+        }
+
+        async function pickFromOneDrive(targetInputId) {
+            if (typeof msal === 'undefined') {
+                showError('La librairie de connexion Microsoft n\'a pas pu se charger. Vérifiez votre connexion internet.');
                 return;
             }
 
-            OneDrive.open({
-                clientId: ONEDRIVE_CLIENT_ID,
-                action: 'share',
-                multiSelect: false,
-                advanced: {
-                    redirectUri: ONEDRIVE_REDIRECT_URI,
-                    linkType: 'view'
-                },
-                success: function (response) {
-                    try {
-                        const item = response.value[0];
-                        const link = (item.permissions && item.permissions[0] && item.permissions[0].link && item.permissions[0].link.webUrl)
-                            || item.webUrl;
-                        if (link) {
-                            document.getElementById(targetInputId).value = link;
-                            showSuccess('Lien OneDrive récupéré : ' + (item.name || ''));
-                        } else {
-                            showError('Impossible de récupérer le lien du fichier sélectionné.');
-                        }
-                    } catch (e) {
-                        showError('Erreur lors de la lecture de la réponse OneDrive.');
-                        console.error(e);
-                    }
-                },
-                cancel: function () { },
-                error: function (error) {
-                    showError('Erreur OneDrive : ' + (error && error.message ? error.message : String(error)));
-                    console.error('Erreur OneDrive:', error);
+            oneDriveTargetInputId = targetInputId;
+
+            try {
+                await odGetToken();
+                odFolderStack = [{ id: 'root', name: 'OneDrive' }];
+                document.getElementById('oneDrivePickerModal').classList.add('active');
+                await odLoadFolder('root');
+            } catch (e) {
+                showError('Erreur de connexion OneDrive : ' + (e && e.message ? e.message : String(e)));
+                console.error('Erreur OneDrive:', e);
+            }
+        }
+
+        async function odLoadFolder(folderId) {
+            const listDiv = document.getElementById('od-file-list');
+            listDiv.innerHTML = '<div style="padding:15px;color:#666;">Chargement...</div>';
+
+            try {
+                const token = await odGetToken();
+                const url = folderId === 'root'
+                    ? 'https://graph.microsoft.com/v1.0/me/drive/root/children?$select=id,name,folder'
+                    : 'https://graph.microsoft.com/v1.0/me/drive/items/' + folderId + '/children?$select=id,name,folder';
+
+                const resp = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+                const data = await resp.json();
+
+                if (!resp.ok) {
+                    listDiv.innerHTML = '';
+                    showError('Erreur Microsoft Graph : ' + (data.error ? data.error.message : resp.status));
+                    return;
+                }
+
+                renderOdBreadcrumb();
+                listDiv.innerHTML = '';
+
+                const items = (data.value || []).slice().sort((a, b) => {
+                    if (!!a.folder !== !!b.folder) return a.folder ? -1 : 1;
+                    return a.name.localeCompare(b.name);
+                });
+
+                if (items.length === 0) {
+                    listDiv.innerHTML = '<div style="padding:15px;color:#666;">Dossier vide.</div>';
+                    return;
+                }
+
+                items.forEach(item => {
+                    const row = document.createElement('div');
+                    row.style.cssText = 'padding:10px;border-bottom:1px solid #e1e5e9;cursor:pointer;display:flex;align-items:center;gap:8px;';
+                    row.onmouseover = () => row.style.background = '#f0f7ff';
+                    row.onmouseout = () => row.style.background = '';
+
+                    const icon = document.createElement('span');
+                    icon.textContent = item.folder ? '📁' : '📄';
+                    const name = document.createElement('span');
+                    name.textContent = item.name;
+
+                    row.appendChild(icon);
+                    row.appendChild(name);
+                    row.onclick = item.folder
+                        ? function () { odFolderStack.push({ id: item.id, name: item.name }); odLoadFolder(item.id); }
+                        : function () { odSelectFile(item.id, item.name); };
+
+                    listDiv.appendChild(row);
+                });
+            } catch (e) {
+                listDiv.innerHTML = '';
+                showError('Erreur lors du chargement du dossier : ' + (e && e.message ? e.message : String(e)));
+                console.error(e);
+            }
+        }
+
+        function renderOdBreadcrumb() {
+            const bc = document.getElementById('od-breadcrumb');
+            bc.innerHTML = '';
+            odFolderStack.forEach((f, i) => {
+                const span = document.createElement('span');
+                span.textContent = f.name;
+                span.style.cssText = 'cursor:pointer;color:#4a90e2;';
+                span.onclick = function () {
+                    odFolderStack = odFolderStack.slice(0, i + 1);
+                    odLoadFolder(f.id);
+                };
+                bc.appendChild(span);
+                if (i < odFolderStack.length - 1) {
+                    const sep = document.createElement('span');
+                    sep.textContent = ' / ';
+                    bc.appendChild(sep);
                 }
             });
+        }
+
+        async function odSelectFile(itemId, itemName) {
+            try {
+                const token = await odGetToken();
+                const resp = await fetch('https://graph.microsoft.com/v1.0/me/drive/items/' + itemId + '/createLink', {
+                    method: 'POST',
+                    headers: {
+                        Authorization: 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ type: 'view', scope: 'anonymous' })
+                });
+                const data = await resp.json();
+
+                if (resp.ok && data.link && data.link.webUrl) {
+                    document.getElementById(oneDriveTargetInputId).value = data.link.webUrl;
+                    showSuccess('Lien OneDrive récupéré : ' + itemName);
+                    closeOneDrivePicker();
+                } else {
+                    showError('Impossible de créer le lien de partage : ' + (data.error ? data.error.message : resp.status));
+                    console.error(data);
+                }
+            } catch (e) {
+                showError('Erreur lors de la création du lien : ' + (e && e.message ? e.message : String(e)));
+                console.error(e);
+            }
+        }
+
+        function closeOneDrivePicker() {
+            document.getElementById('oneDrivePickerModal').classList.remove('active');
         }
 
         function formatDateFR(isoOrDateString) {
