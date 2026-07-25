@@ -684,7 +684,10 @@
             </div>
             <div class="form-group" style="margin-bottom:12px;">
                 <label>Document (lien)</label>
-                <input type="text" id="np-document" placeholder="Lien Drive/OneDrive...">
+                <div style="display:flex;gap:8px;">
+                    <input type="text" id="np-document" placeholder="Lien Drive/OneDrive..." style="flex:1;">
+                    <button type="button" class="calc-btn" style="white-space:nowrap;padding:8px 12px;font-size:13px;" onclick="pickFromOneDrive('np-document')">📁 OneDrive</button>
+                </div>
             </div>
             <button class="calc-btn" onclick="submitNouveauPoint()">Créer le point</button>
         </div>
@@ -738,7 +741,10 @@
                     </div>
                     <div class="form-group">
                         <label>Document (lien)</label>
-                        <input type="text" id="suivi-new-document" placeholder="Lien Drive/OneDrive...">
+                        <div style="display:flex;gap:8px;">
+                            <input type="text" id="suivi-new-document" placeholder="Lien Drive/OneDrive..." style="flex:1;">
+                            <button type="button" class="calc-btn" style="white-space:nowrap;padding:8px 12px;font-size:13px;" onclick="pickFromOneDrive('suivi-new-document')">📁 OneDrive</button>
+                        </div>
                     </div>
                 </div>
                 <button class="calc-btn" onclick="submitAjoutSuivi()">Ajouter</button>
@@ -747,8 +753,11 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="https://js.live.net/v7.2/OneDrive.js"></script>
     <script>
-        const SUIVI_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxSrLQ-xYxe4f-LRYadEeMHE89ISQTGbMIoQbWXLt_TuMCHmCoIlpUkFNtJA7x8JeYM/exec';
+        const SUIVI_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzul9-VD8KaC8obVeFE9z9JNrn0D1eolciTjaDvbVrGFwVvdOos9U_HKCJi5VnhsCKd/exec';
+        const ONEDRIVE_CLIENT_ID = '0552433d-42fa-46e7-bbb9-13c72e253f17';
+        const ONEDRIVE_REDIRECT_URI = window.location.origin + '/';
         let csvData = [];
         let filteredData = [];
         let isAdminLoggedIn = false;
@@ -1268,6 +1277,44 @@
                 });
         }
 
+        function pickFromOneDrive(targetInputId) {
+            if (typeof OneDrive === 'undefined') {
+                showError('Le sélecteur OneDrive n\'a pas pu se charger. Vérifiez votre connexion internet.');
+                return;
+            }
+
+            OneDrive.open({
+                clientId: ONEDRIVE_CLIENT_ID,
+                action: 'share',
+                multiSelect: false,
+                advanced: {
+                    redirectUri: ONEDRIVE_REDIRECT_URI,
+                    linkType: 'view'
+                },
+                success: function (response) {
+                    try {
+                        const item = response.value[0];
+                        const link = (item.permissions && item.permissions[0] && item.permissions[0].link && item.permissions[0].link.webUrl)
+                            || item.webUrl;
+                        if (link) {
+                            document.getElementById(targetInputId).value = link;
+                            showSuccess('Lien OneDrive récupéré : ' + (item.name || ''));
+                        } else {
+                            showError('Impossible de récupérer le lien du fichier sélectionné.');
+                        }
+                    } catch (e) {
+                        showError('Erreur lors de la lecture de la réponse OneDrive.');
+                        console.error(e);
+                    }
+                },
+                cancel: function () { },
+                error: function (error) {
+                    showError('Erreur OneDrive : ' + (error && error.message ? error.message : String(error)));
+                    console.error('Erreur OneDrive:', error);
+                }
+            });
+        }
+
         function formatDateFR(isoOrDateString) {
             if (!isoOrDateString) return '';
             const d = new Date(isoOrDateString);
@@ -1465,14 +1512,21 @@
         }
 
         function renderSuiviHistoriqueList(id) {
+            const container = document.getElementById('suivi-historique-list');
+            container.innerHTML = '';
+
             const entries = suiviHistorique
                 .filter(h => String(h.PointId) === String(id))
                 .sort((a, b) => new Date(b.Date) - new Date(a.Date));
 
-            let html = '';
             if (entries.length === 0) {
-                html = '<p style="color: #666;">Aucun historique pour ce point.</p>';
+                const p = document.createElement('p');
+                p.style.color = '#666';
+                p.textContent = 'Aucun historique pour ce point.';
+                container.appendChild(p);
+                return;
             }
+
             entries.forEach(h => {
                 const date = h.Date ? formatDateFR(h.Date) + ' ' + new Date(h.Date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
                 let details = [];
@@ -1481,16 +1535,164 @@
                 if (h.DateEcheance) details.push('Échéance : ' + formatDateFR(h.DateEcheance));
                 if (h.Priorite) details.push('Priorité : ' + h.Priorite);
 
-                html += '<div style="padding:10px 0;border-bottom:1px solid #e1e5e9;">' +
-                    '<div style="font-size:12px;color:#666;">' + date + '</div>' +
-                    (h.Resume ? '<div style="font-weight:600;color:#2c5aa0;">' + h.Resume + '</div>' : '') +
-                    '<div>' + (h.Note || '') + '</div>' +
-                    (details.length ? '<div style="font-size:13px;color:#2c5aa0;">' + details.join(' · ') + '</div>' : '') +
-                    (h.Document ? '<div><a href="' + h.Document + '" target="_blank">Pièce jointe</a></div>' : '') +
-                    '</div>';
-            });
+                const entryDiv = document.createElement('div');
+                entryDiv.style.cssText = 'padding:10px 0;border-bottom:1px solid #e1e5e9;';
 
-            document.getElementById('suivi-historique-list').innerHTML = html;
+                const headerRow = document.createElement('div');
+                headerRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;';
+                const dateDiv = document.createElement('div');
+                dateDiv.style.cssText = 'font-size:12px;color:#666;';
+                dateDiv.textContent = date;
+                const editBtn = document.createElement('button');
+                editBtn.type = 'button';
+                editBtn.textContent = '✎ Modifier';
+                editBtn.style.cssText = 'background:none;border:none;cursor:pointer;color:#4a90e2;font-size:12px;';
+                editBtn.onclick = () => toggleEditHisto(h.HistoId);
+                headerRow.appendChild(dateDiv);
+                headerRow.appendChild(editBtn);
+                entryDiv.appendChild(headerRow);
+
+                if (h.Resume) {
+                    const resumeDiv = document.createElement('div');
+                    resumeDiv.style.cssText = 'font-weight:600;color:#2c5aa0;';
+                    resumeDiv.textContent = h.Resume;
+                    entryDiv.appendChild(resumeDiv);
+                }
+
+                const noteDiv = document.createElement('div');
+                noteDiv.textContent = h.Note || '';
+                entryDiv.appendChild(noteDiv);
+
+                if (details.length) {
+                    const detailsDiv = document.createElement('div');
+                    detailsDiv.style.cssText = 'font-size:13px;color:#2c5aa0;';
+                    detailsDiv.textContent = details.join(' · ');
+                    entryDiv.appendChild(detailsDiv);
+                }
+
+                if (h.Document) {
+                    const docDiv = document.createElement('div');
+                    const a = document.createElement('a');
+                    a.href = h.Document;
+                    a.target = '_blank';
+                    a.textContent = 'Pièce jointe';
+                    docDiv.appendChild(a);
+                    entryDiv.appendChild(docDiv);
+                }
+
+                const editContainer = document.createElement('div');
+                editContainer.id = 'histo-edit-' + h.HistoId;
+                editContainer.style.display = 'none';
+                editContainer.style.cssText += 'margin-top:10px;padding:10px;background:#f8f9fa;border-radius:5px;';
+                entryDiv.appendChild(editContainer);
+
+                container.appendChild(entryDiv);
+            });
+        }
+
+        function toggleEditHisto(histoId) {
+            const container = document.getElementById('histo-edit-' + histoId);
+            if (!container) return;
+
+            if (container.style.display !== 'none') {
+                container.style.display = 'none';
+                return;
+            }
+
+            if (container.childElementCount === 0) {
+                const h = suiviHistorique.find(e => String(e.HistoId) === String(histoId));
+                if (!h) return;
+
+                const mk = (tag, attrs) => {
+                    const el = document.createElement(tag);
+                    Object.assign(el, attrs || {});
+                    return el;
+                };
+
+                const noteInput = mk('textarea', { rows: 2, value: h.Note || '' });
+                noteInput.style.cssText = 'width:100%;padding:8px;border:2px solid #e1e5e9;border-radius:5px;font-family:\'Aptos\',sans-serif;margin-bottom:8px;';
+
+                const resumeInput = mk('input', { type: 'text', maxLength: 20, value: h.Resume || '' });
+                resumeInput.style.cssText = 'width:100%;padding:8px;border:2px solid #e1e5e9;border-radius:5px;margin-bottom:8px;';
+
+                const responsableInput = mk('input', { type: 'text', value: h.Responsable || '', placeholder: 'Responsable' });
+                responsableInput.style.cssText = 'padding:8px;border:2px solid #e1e5e9;border-radius:5px;margin-bottom:8px;margin-right:8px;';
+
+                const echeanceInput = mk('input', { type: 'date', value: (h.DateEcheance || '').slice(0, 10) });
+                echeanceInput.style.cssText = 'padding:8px;border:2px solid #e1e5e9;border-radius:5px;margin-bottom:8px;margin-right:8px;';
+
+                const statutSelect = mk('select', {});
+                statutSelect.style.cssText = 'padding:8px;border:2px solid #e1e5e9;border-radius:5px;margin-bottom:8px;';
+                ['', 'Ouvert', 'Clos'].forEach(v => {
+                    const opt = mk('option', { value: v, textContent: v || '--' });
+                    if (v === (h.Statut || '')) opt.selected = true;
+                    statutSelect.appendChild(opt);
+                });
+
+                const documentInput = mk('input', { type: 'text', value: h.Document || '', placeholder: 'Lien document' });
+                documentInput.style.cssText = 'width:100%;padding:8px;border:2px solid #e1e5e9;border-radius:5px;margin-bottom:8px;';
+
+                const saveBtn = mk('button', { type: 'button', textContent: 'Enregistrer' });
+                saveBtn.className = 'calc-btn';
+                saveBtn.style.cssText = 'padding:6px 15px;font-size:14px;';
+                saveBtn.onclick = () => submitEditHisto(histoId, {
+                    note: noteInput.value.trim(),
+                    resume: resumeInput.value.trim(),
+                    responsable: responsableInput.value.trim(),
+                    dateEcheance: echeanceInput.value,
+                    statut: statutSelect.value,
+                    document: documentInput.value.trim()
+                });
+
+                const label = (text) => {
+                    const l = mk('label', { textContent: text });
+                    l.style.cssText = 'display:block;font-size:12px;color:#2c5aa0;font-weight:600;margin-bottom:2px;';
+                    return l;
+                };
+
+                container.appendChild(label('Note'));
+                container.appendChild(noteInput);
+                container.appendChild(label('Résumé (20 car. max)'));
+                container.appendChild(resumeInput);
+                container.appendChild(label('Responsable / Échéance / Statut'));
+                const row = mk('div', {});
+                row.appendChild(responsableInput);
+                row.appendChild(echeanceInput);
+                row.appendChild(statutSelect);
+                container.appendChild(row);
+                container.appendChild(label('Document (lien)'));
+                container.appendChild(documentInput);
+                container.appendChild(saveBtn);
+            }
+
+            container.style.display = 'block';
+        }
+
+        function submitEditHisto(histoId, fields) {
+            if (!fields.note) {
+                showError('La note ne peut pas être vide');
+                return;
+            }
+
+            fetch(SUIVI_SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(Object.assign({ action: 'editSuivi', histoId: histoId }, fields))
+            })
+                .then(response => response.json())
+                .then(result => {
+                    if (!result.ok) {
+                        showError('Erreur lors de la modification : ' + result.error);
+                        return;
+                    }
+                    showSuccess('Entrée modifiée');
+                    loadSuiviData();
+                    setTimeout(() => openSuiviFiche(currentOpenSuiviId), 300);
+                })
+                .catch(error => {
+                    showError('Erreur lors de l\'envoi. Vérifiez votre connexion internet.');
+                    console.error('Erreur:', error);
+                });
         }
 
         function closeSuiviFicheModal(event) {
