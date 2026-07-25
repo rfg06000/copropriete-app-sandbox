@@ -1291,7 +1291,7 @@
         let oneDriveTargetInputId = null;
         let odFolderStack = [];
 
-        function getMsalInstance() {
+        async function getMsalInstance() {
             if (!msalInstance) {
                 msalInstance = new msal.PublicClientApplication({
                     auth: {
@@ -1300,12 +1300,13 @@
                         redirectUri: ONEDRIVE_REDIRECT_URI
                     }
                 });
+                await msalInstance.initialize();
             }
             return msalInstance;
         }
 
         async function odGetToken() {
-            const app = getMsalInstance();
+            const app = await getMsalInstance();
             const account = app.getAllAccounts()[0];
             if (!account) {
                 const result = await app.loginPopup({ scopes: ['Files.Read'] });
