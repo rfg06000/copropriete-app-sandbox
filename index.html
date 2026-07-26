@@ -692,7 +692,7 @@
                     <button type="button" class="calc-btn" style="white-space:nowrap;padding:8px 12px;font-size:13px;" onclick="pickFromOneDrive('np-document')">📁 OneDrive</button>
                 </div>
             </div>
-            <button class="calc-btn" onclick="submitNouveauPoint()">Créer le point</button>
+            <button class="calc-btn" onclick="submitNouveauPoint(this)">Créer le point</button>
         </div>
     </div>
 
@@ -703,6 +703,7 @@
             <h3 id="suivi-modal-title" style="display:flex;align-items:center;gap:10px;">
                 <span id="suivi-modal-title-text">Point de suivi</span>
                 <button type="button" onclick="toggleRenameSuivi()" style="background:none;border:none;cursor:pointer;font-size:16px;" title="Renommer le sujet">✎</button>
+                <button type="button" id="suivi-delete-btn" onclick="confirmDeletePoint()" style="background:none;border:none;cursor:pointer;font-size:16px;color:#c0392b;margin-left:auto;" title="Supprimer ce point">🗑️</button>
             </h3>
             <div id="suivi-rename-form" style="display:none;margin-bottom:15px;">
                 <input type="text" id="suivi-rename-sujet" style="width:100%;padding:10px;border:2px solid #e1e5e9;border-radius:5px;font-family:'Aptos',sans-serif;margin-bottom:8px;">
@@ -736,7 +737,7 @@
                         </div>
                     </div>
                 </div>
-                <button class="calc-btn" onclick="submitAjoutSuivi()">Ajouter</button>
+                <button class="calc-btn" onclick="submitAjoutSuivi(this)">Ajouter</button>
             </div>
         </div>
     </div>
@@ -1553,7 +1554,23 @@
             }
         }
 
-        function submitNouveauPoint() {
+        function setButtonLoading(button, loading, loadingText) {
+            if (!button) return;
+            if (loading) {
+                button.dataset.originalText = button.textContent;
+                button.textContent = loadingText || 'Envoi en cours...';
+                button.disabled = true;
+                button.style.opacity = '0.6';
+                button.style.cursor = 'wait';
+            } else {
+                button.textContent = button.dataset.originalText || button.textContent;
+                button.disabled = false;
+                button.style.opacity = '';
+                button.style.cursor = '';
+            }
+        }
+
+        function submitNouveauPoint(button) {
             const sujet = document.getElementById('np-sujet').value.trim();
             const resume = document.getElementById('np-resume').value.trim();
             if (!sujet) {
@@ -1564,6 +1581,8 @@
                 showError('Le résumé (20 caractères max) est obligatoire');
                 return;
             }
+
+            setButtonLoading(button, true, 'Création en cours...');
 
             const data = {
                 action: 'create',
@@ -1596,7 +1615,8 @@
                 .catch(error => {
                     showError('Erreur lors de l\'envoi. Vérifiez votre connexion internet.');
                     console.error('Erreur:', error);
-                });
+                })
+                .finally(() => setButtonLoading(button, false));
         }
 
         function openSuiviFiche(id) {
@@ -1608,6 +1628,7 @@
             document.getElementById('suivi-modal-title-text').textContent = 'Point n° ' + point.ID + ' — ' + point.Sujet;
             document.getElementById('suivi-rename-form').style.display = 'none';
             document.getElementById('suivi-rename-sujet').value = point.Sujet || '';
+            resetDeleteConfirm();
 
             const body = document.getElementById('suivi-modal-body');
             body.innerHTML = '';
@@ -1721,7 +1742,7 @@
                 if (h.Priorite) details.push('Priorité : ' + h.Priorite);
 
                 const entryDiv = document.createElement('div');
-                entryDiv.style.cssText = 'padding:14px 0;border-bottom:2px solid #d5dce3;';
+                entryDiv.style.cssText = 'padding:12px 14px;margin-bottom:10px;border:1px solid #d5dce3;border-radius:8px;background:#fafbfc;';
 
                 const headerRow = document.createElement('div');
                 headerRow.style.cssText = 'display:flex;justify-content:space-between;align-items:flex-start;gap:10px;';
@@ -1891,7 +1912,7 @@
             }
         }
 
-        function submitAjoutSuivi() {
+        function submitAjoutSuivi(button) {
             const note = document.getElementById('suivi-new-comment').value.trim();
             const resume = document.getElementById('suivi-new-resume').value.trim();
             const responsable = document.getElementById('suivi-new-responsable').value.trim();
@@ -1908,6 +1929,8 @@
                 showError('Le responsable est obligatoire pour ajouter un suivi');
                 return;
             }
+
+            setButtonLoading(button, true, 'Envoi en cours...');
 
             const data = {
                 action: 'ajoutSuivi',
@@ -1937,7 +1960,8 @@
                 .catch(error => {
                     showError('Erreur lors de l\'envoi. Vérifiez votre connexion internet.');
                     console.error('Erreur:', error);
-                });
+                })
+                .finally(() => setButtonLoading(button, false));
         }
 
         function toggleRenameSuivi() {
@@ -1971,6 +1995,57 @@
                 .catch(error => {
                     showError('Erreur lors de l\'envoi. Vérifiez votre connexion internet.');
                     console.error('Erreur:', error);
+                });
+        }
+
+        let deleteConfirmPending = false;
+
+        function resetDeleteConfirm() {
+            deleteConfirmPending = false;
+            const btn = document.getElementById('suivi-delete-btn');
+            if (btn) {
+                btn.textContent = '🗑️';
+                btn.style.cssText = 'background:none;border:none;cursor:pointer;font-size:16px;color:#c0392b;margin-left:auto;';
+            }
+        }
+
+        function confirmDeletePoint() {
+            const btn = document.getElementById('suivi-delete-btn');
+            if (!deleteConfirmPending) {
+                deleteConfirmPending = true;
+                btn.textContent = 'Confirmer la suppression ?';
+                btn.style.cssText = 'background:#f8d7da;color:#721c24;border:none;cursor:pointer;font-size:13px;padding:4px 10px;border-radius:5px;margin-left:auto;';
+                return;
+            }
+            executeDeletePoint();
+        }
+
+        function executeDeletePoint() {
+            const btn = document.getElementById('suivi-delete-btn');
+            setButtonLoading(btn, true, 'Suppression...');
+
+            fetch(SUIVI_SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'deletePoint', id: currentOpenSuiviId })
+            })
+                .then(response => response.json())
+                .then(result => {
+                    if (!result.ok) {
+                        showError('Erreur lors de la suppression : ' + result.error);
+                        setButtonLoading(btn, false);
+                        resetDeleteConfirm();
+                        return;
+                    }
+                    document.getElementById('suiviFicheModal').classList.remove('active');
+                    showSuccess('Point supprimé');
+                    loadSuiviData();
+                })
+                .catch(error => {
+                    showError('Erreur lors de l\'envoi. Vérifiez votre connexion internet.');
+                    console.error('Erreur:', error);
+                    setButtonLoading(btn, false);
+                    resetDeleteConfirm();
                 });
         }
 
