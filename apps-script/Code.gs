@@ -74,9 +74,21 @@ const MAX_ECHECS = 5;
 const FENETRE_ECHECS_S = 15 * 60;
 
 // PBKDF2-HMAC-SHA256. Apps Script n'offre ni bcrypt ni argon2 : on dérive à la
-// main. Voir benchmarkHash() pour mesurer le coût réel avant de faire varier
-// ce nombre — chaque itération est un appel natif, donc lent.
-const PBKDF2_ITERATIONS = 10000;
+// main, et chaque itération est un appel natif — benchmarkHash() a mesuré
+// 7247 ms pour 10 000 itérations, soit ~0,72 ms l'unité. 3500 tient donc en
+// ~2,5 s, ce qui laisse une demi-seconde sous la cible de 3 s pour le reste de
+// la requête (verrou, lectures de feuilles) et absorbe les variations de charge
+// de la plateforme. Relancer benchmarkHash() avant de retoucher ce nombre.
+//
+// Ce compte est volontairement bas au regard des recommandations usuelles
+// (OWASP : 600 000) : la plateforme l'impose. C'est le poivre, hors du
+// classeur, qui protège réellement les hachages en cas de fuite de la seule
+// Google Sheet — l'itération n'est ici qu'une défense supplémentaire.
+//
+// Changer cette valeur n'invalide pas les mots de passe déjà enregistrés :
+// le nombre d'itérations est stocké dans chaque hachage et c'est lui que
+// verifierMotDePasse_() rejoue.
+const PBKDF2_ITERATIONS = 3500;
 
 const LONGUEUR_MDP_MIN = 10;
 
