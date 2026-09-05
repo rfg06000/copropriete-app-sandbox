@@ -101,11 +101,6 @@
             font-size: 1.5em;
         }
 
-        .password-container {
-            position: relative;
-            margin-bottom: 20px;
-        }
-
         .login-form input {
             width: 100%;
             padding: 15px;
@@ -119,23 +114,6 @@
         .login-form input:focus {
             outline: none;
             border-color: #4a90e2;
-        }
-
-        .password-toggle {
-            position: absolute;
-            right: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            cursor: pointer;
-            color: #666;
-            font-size: 14px;
-            user-select: none;
-        }
-
-        .password-toggle:hover {
-            color: #4a90e2;
         }
 
         .login-btn {
@@ -431,6 +409,92 @@
             line-height: 1.6;
             color: #333;
         }
+
+        .auth-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            margin-top: 18px;
+            flex-wrap: wrap;
+            color: white;
+            font-size: 15px;
+        }
+
+        .auth-btn {
+            background: rgba(255,255,255,0.9);
+            border: none;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-family: 'Aptos', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        }
+
+        .auth-btn:hover {
+            background: white;
+        }
+
+        .badge-admin {
+            background: #2c5aa0;
+            border-radius: 12px;
+            padding: 2px 10px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .link-btn {
+            background: none;
+            border: none;
+            color: #4a90e2;
+            cursor: pointer;
+            text-decoration: underline;
+            font-family: 'Aptos', sans-serif;
+            font-size: 14px;
+            padding: 0;
+        }
+
+        .link-btn:hover { color: #2c5aa0; }
+
+        .admin-section {
+            border-top: 2px solid #e1e5e9;
+            padding-top: 25px;
+            margin-top: 25px;
+        }
+
+        .admin-section h3 {
+            color: #2c5aa0;
+            margin-bottom: 15px;
+        }
+
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        .users-table th, .users-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e1e5e9;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        .users-table th {
+            background: #f5f7fa;
+            color: #2c5aa0;
+            font-weight: 600;
+        }
+
+        .info-note {
+            font-size: 14px;
+            color: #666;
+            margin-top: 10px;
+            line-height: 1.5;
+        }
     </style>
 </head>
 <body>
@@ -438,50 +502,96 @@
         <div class="header">
             <h1>La résidence du parc</h1>
             <h2 id="subtitle">Liste des lots de la copropriété</h2>
+            <div class="auth-bar" id="auth-bar"></div>
         </div>
 
         <div class="nav-buttons" id="navigation">
-            <button class="nav-btn" onclick="showPage('admin', this)">Administration</button>
+            <button class="nav-btn" id="nav-admin" style="display:none;" onclick="showPage('admin', this)">Administration</button>
             <button class="nav-btn active" onclick="showPage('lots', this)">Liste des lots</button>
             <button class="nav-btn" onclick="showPage('calcul', this)">Calcul de votre QP des travaux</button>
             <button class="nav-btn" onclick="showPage('suivi', this)">Points de suivi</button>
         </div>
 
         <div id="admin-page" class="page">
-            <div id="admin-login" class="login-form">
-                <h3>Accès Administrateur</h3>
-                <div class="password-container">
-                    <input type="password" id="passwordInput" placeholder="Mot de passe" onkeypress="handlePasswordKeypress(event)">
-                    <button type="button" class="password-toggle" onclick="togglePassword()">👁️</button>
-                </div>
-                <button class="login-btn" onclick="checkPassword()">Se connecter</button>
-                <div id="login-error" class="error" style="display: none; margin-top: 15px;">
-                    Mot de passe incorrect
-                </div>
+            <div id="admin-refuse" class="data-status" style="display: none;">
+                Cette page est réservée aux administrateurs.
             </div>
 
             <div id="admin-content" style="display: none;">
                 <div class="upload-section">
-                    <h3>Chargement du fichier CSV</h3>
-                    
+                    <h3>Données des lots</h3>
+                    <p class="info-note" style="margin-bottom:15px;">
+                        Les lots sont stockés dans la feuille <strong>Lots</strong> de la Google Sheet.
+                        Importer un fichier remplace l'intégralité de cette feuille.
+                    </p>
+
                     <div style="margin-bottom: 20px;">
-                        <h4>Option 1 : Charger depuis GitHub</h4>
-                        <button class="calc-btn" onclick="loadFromGitHub()" style="margin-bottom: 10px;">Charger le fichier data.csv depuis GitHub</button>
-                        <p style="font-size: 14px; color: #666;">Charge automatiquement le fichier data.csv stocké dans le repository GitHub</p>
+                        <button class="calc-btn" onclick="loadLotsDepuisSheets(false)" style="margin-bottom: 10px;">Recharger depuis Google Sheets</button>
+                        <p class="info-note">Recharge les lots actuellement enregistrés, sans rien modifier.</p>
                     </div>
-                    
+
                     <div style="border-top: 2px solid #e1e5e9; padding-top: 20px;">
-                        <h4>Option 2 : Importer un nouveau fichier</h4>
+                        <h4>Importer un nouveau fichier CSV</h4>
                         <input type="file" id="csvFile" accept=".csv" onchange="loadCSV(event)">
                         <p>Le fichier doit contenir les colonnes : N° cop, Copropriétaire, Type, Description, N° lot, Escalier, Etage, Façade, Porte cave, N° plan, Clé 1 : charges générales, Clé 3 : ascenceurs, Description complète</p>
-                        <p style="font-size: 14px; color: #666; margin-top: 10px;">
-                            <strong>Note :</strong> Pour une sauvegarde permanente, ajoutez votre fichier CSV dans le repository GitHub sous le nom "data.csv"
-                        </p>
+                        <div id="import-confirm" style="display:none;margin-top:15px;padding:15px;background:#fff3cd;border-radius:8px;color:#856404;">
+                            <p id="import-confirm-text" style="margin-bottom:10px;"></p>
+                            <button class="calc-btn" onclick="confirmerImportLots(this)">Remplacer la feuille Lots</button>
+                            <button class="link-btn" style="margin-left:15px;" onclick="annulerImportLots()">Annuler</button>
+                        </div>
                     </div>
                 </div>
-                
+
                 <div id="admin-status" class="data-status" style="display: none;">
                     Aucun fichier chargé
+                </div>
+
+                <div class="admin-section">
+                    <h3>Comptes utilisateurs</h3>
+                    <p class="info-note">
+                        Un nouveau compte reçoit par e-mail un lien lui permettant de définir son mot de passe.
+                        Les mots de passe ne sont jamais visibles ici.
+                    </p>
+
+                    <table class="users-table" id="usersTable">
+                        <thead>
+                            <tr>
+                                <th>Email</th>
+                                <th>Prénom</th>
+                                <th>Nom</th>
+                                <th>Rôle</th>
+                                <th>Mot de passe</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody"></tbody>
+                    </table>
+
+                    <div style="margin-top:25px;">
+                        <h4 style="color:#2c5aa0;margin-bottom:10px;">Ajouter un compte</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="nu-email">Email</label>
+                                <input type="email" id="nu-email" placeholder="prenom.nom@exemple.fr">
+                            </div>
+                            <div class="form-group">
+                                <label for="nu-prenom">Prénom</label>
+                                <input type="text" id="nu-prenom">
+                            </div>
+                            <div class="form-group">
+                                <label for="nu-nom">Nom</label>
+                                <input type="text" id="nu-nom">
+                            </div>
+                            <div class="form-group">
+                                <label for="nu-admin">Rôle</label>
+                                <select id="nu-admin">
+                                    <option value="false">Utilisateur</option>
+                                    <option value="true">Administrateur</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button class="calc-btn" onclick="submitAddUser(this)">Créer le compte et envoyer l'invitation</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -575,25 +685,13 @@
         </div>
 
         <div id="suivi-page" class="page">
-            <div id="suivi-login" class="login-form">
-                <h3>Accès Points de suivi</h3>
-                <div class="password-container">
-                    <input type="password" id="suiviPasswordInput" placeholder="Mot de passe" onkeypress="handleSuiviPasswordKeypress(event)">
-                    <button type="button" class="password-toggle" onclick="toggleSuiviPassword()">👁️</button>
-                </div>
-                <button class="login-btn" onclick="checkSuiviPassword()">Se connecter</button>
-                <div id="suivi-login-error" class="error" style="display: none; margin-top: 15px;">
-                    Mot de passe incorrect
-                </div>
-            </div>
-
-            <div id="suivi-content" style="display: none;">
+            <div id="suivi-content">
                 <div class="filters">
                     <div class="filter-group">
                         <label>Filtrer par statut :</label>
                         <select id="suiviStatutFilter" onchange="filterSuiviTable()">
                             <option value="">-- Tous --</option>
-                            <option value="Ouvert">Ouvert</option>
+                            <option value="En cours">En cours</option>
                             <option value="Clos">Clos</option>
                         </select>
                     </div>
@@ -605,7 +703,7 @@
                         <label>Recherche (sujet) :</label>
                         <input type="text" id="suiviSearchFilter" placeholder="Mot-clé" oninput="filterSuiviTable()">
                     </div>
-                    <div class="filter-group">
+                    <div class="filter-group" id="suivi-new-point-container" style="display:none;">
                         <label>&nbsp;</label>
                         <button class="calc-btn" onclick="openNouveauPointForm()">+ Nouveau point</button>
                     </div>
@@ -665,7 +763,7 @@
                 <div class="form-group">
                     <label>Statut</label>
                     <select id="np-statut">
-                        <option>Ouvert</option><option>Clos</option>
+                        <option>En cours</option><option>Clos</option>
                     </select>
                 </div>
             </div>
@@ -702,7 +800,7 @@
             <button class="modal-close" onclick="document.getElementById('suiviFicheModal').classList.remove('active')">✕</button>
             <h3 id="suivi-modal-title" style="display:flex;align-items:center;gap:10px;">
                 <span id="suivi-modal-title-text">Point de suivi</span>
-                <button type="button" onclick="toggleRenameSuivi()" style="background:none;border:none;cursor:pointer;font-size:16px;" title="Renommer le sujet">✎</button>
+                <button type="button" id="suivi-rename-btn" onclick="toggleRenameSuivi()" style="background:none;border:none;cursor:pointer;font-size:16px;" title="Renommer le sujet">✎</button>
                 <button type="button" id="suivi-delete-btn" onclick="confirmDeletePoint()" style="background:none;border:none;cursor:pointer;font-size:16px;color:#c0392b;margin-left:auto;" title="Supprimer ce point">🗑️</button>
             </h3>
             <div id="suivi-rename-form" style="display:none;margin-bottom:15px;">
@@ -714,6 +812,11 @@
                 <h4 style="color:#2c5aa0;margin-bottom:10px;">Historique</h4>
                 <div id="suivi-historique-list" style="max-height:200px;overflow-y:auto;margin-bottom:15px;"></div>
 
+                <div id="suivi-ajout-refuse" class="info-note" style="display:none;">
+                    Connectez-vous pour ajouter un suivi à ce point.
+                </div>
+
+                <div id="suivi-ajout-form">
                 <h4 style="color:#2c5aa0;margin-bottom:10px;">Ajouter un suivi</h4>
                 <textarea id="suivi-new-comment" rows="2" placeholder="Note détaillée (obligatoire)..." style="width:100%;padding:10px;border:2px solid #e1e5e9;border-radius:5px;font-family:'Aptos',sans-serif;margin-bottom:10px;"></textarea>
                 <div class="form-group" style="margin-bottom:12px;">
@@ -738,6 +841,7 @@
                     </div>
                 </div>
                 <button class="calc-btn" onclick="submitAjoutSuivi(this)">Ajouter</button>
+                </div>
             </div>
         </div>
     </div>
@@ -752,6 +856,64 @@
         </div>
     </div>
 
+    <!-- Modale de connexion (email + mot de passe, lien de première connexion / mot de passe oublié) -->
+    <div class="modal-overlay" id="loginModal" onclick="closeLoginModal(event)">
+        <div class="modal">
+            <button class="modal-close" onclick="document.getElementById('loginModal').classList.remove('active')">✕</button>
+
+            <div id="login-step-credentials">
+                <h3>Se connecter</h3>
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label for="login-email">Email</label>
+                    <input type="email" id="login-email" autocomplete="username" onkeypress="if(event.key==='Enter')submitLogin(document.getElementById('login-submit-btn'))">
+                </div>
+                <div class="form-group" style="margin-bottom:16px;">
+                    <label for="login-password">Mot de passe</label>
+                    <input type="password" id="login-password" autocomplete="current-password" onkeypress="if(event.key==='Enter')submitLogin(document.getElementById('login-submit-btn'))">
+                </div>
+                <button class="calc-btn" id="login-submit-btn" onclick="submitLogin(this)">Se connecter</button>
+                <p style="margin-top:15px;">
+                    <button class="link-btn" onclick="showLoginStep('lien')">Première connexion ou mot de passe oublié ?</button>
+                </p>
+            </div>
+
+            <div id="login-step-lien" style="display:none;">
+                <h3>Recevoir un lien par e-mail</h3>
+                <p class="info-note" style="margin-bottom:15px;">
+                    Saisissez votre adresse e-mail. Si elle correspond à un compte, vous recevrez un lien
+                    valable une heure pour définir ou réinitialiser votre mot de passe.
+                </p>
+                <div class="form-group" style="margin-bottom:16px;">
+                    <label for="lien-email">Email</label>
+                    <input type="email" id="lien-email" onkeypress="if(event.key==='Enter')submitDemandeLien(document.getElementById('lien-submit-btn'))">
+                </div>
+                <button class="calc-btn" id="lien-submit-btn" onclick="submitDemandeLien(this)">Envoyer le lien</button>
+                <p style="margin-top:15px;">
+                    <button class="link-btn" onclick="showLoginStep('credentials')">← Retour à la connexion</button>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale de définition du mot de passe (ouverte depuis le lien reçu par e-mail) -->
+    <div class="modal-overlay" id="setPasswordModal">
+        <div class="modal">
+            <h3>Définir votre mot de passe</h3>
+            <p class="info-note" style="margin-bottom:15px;">
+                Choisissez un mot de passe d'au moins 10 caractères. Vous serez connecté automatiquement.
+            </p>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label for="set-password">Nouveau mot de passe</label>
+                <input type="password" id="set-password" autocomplete="new-password">
+            </div>
+            <div class="form-group" style="margin-bottom:16px;">
+                <label for="set-password-confirm">Confirmation</label>
+                <input type="password" id="set-password-confirm" autocomplete="new-password" onkeypress="if(event.key==='Enter')submitSetPassword(document.getElementById('set-password-btn'))">
+            </div>
+            <button class="calc-btn" id="set-password-btn" onclick="submitSetPassword(this)">Enregistrer et se connecter</button>
+        </div>
+    </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@5.17.1/lib/msal-browser.min.js"></script>
     <script>
@@ -760,12 +922,267 @@
         const ONEDRIVE_REDIRECT_URI = window.location.origin + '/';
         let csvData = [];
         let filteredData = [];
-        let isAdminLoggedIn = false;
         let suiviPoints = [];
         let suiviHistorique = [];
         let filteredSuiviData = [];
-        let isSuiviLoggedIn = false;
         let currentOpenSuiviId = null;
+
+        /* ===================== Session et appels à l'API =====================
+         * Le jeton ci-dessous est opaque : il ne porte aucun droit exploitable
+         * côté navigateur. Tout ce que l'interface masque ou affiche n'est
+         * qu'un confort — chaque écriture est revalidée par Apps Script, qui
+         * relit la feuille Utilisateurs et décide seul.
+         */
+        const TOKEN_STORAGE_KEY = 'authToken';
+        let authToken = localStorage.getItem(TOKEN_STORAGE_KEY) || null;
+        let currentUser = null;
+        let lienTokenEnCours = null;
+
+        function estConnecte() { return !!currentUser; }
+        function estAdmin() { return !!(currentUser && currentUser.estAdmin); }
+
+        function apiPost(action, payload) {
+            const body = Object.assign({ action: action }, payload || {});
+            if (authToken) body.token = authToken;
+
+            return fetch(SUIVI_SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(body)
+            })
+                .then(response => response.json())
+                .then(result => {
+                    if (result && !result.ok && result.code === 'AUTH_REQUISE') {
+                        clearSession();
+                        openLoginModal();
+                    }
+                    return result;
+                });
+        }
+
+        function setSession(token, user) {
+            authToken = token;
+            currentUser = user;
+            localStorage.setItem(TOKEN_STORAGE_KEY, token);
+            refreshAuthUI();
+        }
+
+        function clearSession() {
+            authToken = null;
+            currentUser = null;
+            localStorage.removeItem(TOKEN_STORAGE_KEY);
+            refreshAuthUI();
+        }
+
+        function restoreSession() {
+            if (!authToken) {
+                refreshAuthUI();
+                return Promise.resolve();
+            }
+            return apiPost('me', {})
+                .then(result => {
+                    if (result && result.ok && result.user) {
+                        currentUser = result.user;
+                        refreshAuthUI();
+                    } else {
+                        clearSession();
+                    }
+                })
+                .catch(() => {
+                    // Hors ligne : on reste en lecture seule sans effacer le jeton.
+                    currentUser = null;
+                    refreshAuthUI();
+                });
+        }
+
+        /** Rend l'interface cohérente avec la session courante. */
+        function refreshAuthUI() {
+            const bar = document.getElementById('auth-bar');
+            bar.innerHTML = '';
+
+            if (estConnecte()) {
+                const nom = document.createElement('span');
+                nom.textContent = currentUser.nomAffiche || currentUser.email;
+                bar.appendChild(nom);
+
+                if (estAdmin()) {
+                    const badge = document.createElement('span');
+                    badge.className = 'badge-admin';
+                    badge.textContent = 'Administrateur';
+                    bar.appendChild(badge);
+                }
+
+                const btn = document.createElement('button');
+                btn.className = 'auth-btn';
+                btn.textContent = 'Se déconnecter';
+                btn.onclick = logout;
+                bar.appendChild(btn);
+            } else {
+                const btn = document.createElement('button');
+                btn.className = 'auth-btn';
+                btn.textContent = 'Se connecter';
+                btn.onclick = openLoginModal;
+                bar.appendChild(btn);
+            }
+
+            // Le bouton « + Nouveau point » et l'onglet Administration sont
+            // retirés du rendu, pas seulement désactivés.
+            document.getElementById('nav-admin').style.display = estAdmin() ? '' : 'none';
+            document.getElementById('suivi-new-point-container').style.display = estAdmin() ? '' : 'none';
+            document.getElementById('admin-content').style.display = estAdmin() ? 'block' : 'none';
+            document.getElementById('admin-refuse').style.display = estAdmin() ? 'none' : 'block';
+
+            if (!estAdmin() && document.getElementById('admin-page').classList.contains('active')) {
+                const navButtons = document.querySelectorAll('.nav-btn');
+                showPage('lots', navButtons[1]);
+            }
+
+            if (estAdmin()) loadUsers();
+
+            // La fiche ouverte doit refléter immédiatement les nouveaux droits.
+            if (currentOpenSuiviId && document.getElementById('suiviFicheModal').classList.contains('active')) {
+                openSuiviFiche(currentOpenSuiviId);
+            }
+        }
+
+        function logout() {
+            const ancienJeton = authToken;
+            clearSession();
+            showSuccess('Vous êtes déconnecté');
+            if (ancienJeton) {
+                fetch(SUIVI_SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: 'logout', token: ancienJeton })
+                }).catch(() => {});
+            }
+        }
+
+        /* ======================= Modale de connexion ======================= */
+
+        function openLoginModal() {
+            showLoginStep('credentials');
+            document.getElementById('login-password').value = '';
+            document.getElementById('loginModal').classList.add('active');
+            setTimeout(() => document.getElementById('login-email').focus(), 50);
+        }
+
+        function closeLoginModal(event) {
+            if (event.target === document.getElementById('loginModal')) {
+                document.getElementById('loginModal').classList.remove('active');
+            }
+        }
+
+        function showLoginStep(step) {
+            document.getElementById('login-step-credentials').style.display = step === 'credentials' ? 'block' : 'none';
+            document.getElementById('login-step-lien').style.display = step === 'lien' ? 'block' : 'none';
+            if (step === 'lien') {
+                document.getElementById('lien-email').value = document.getElementById('login-email').value.trim();
+            }
+        }
+
+        function submitLogin(button) {
+            const email = document.getElementById('login-email').value.trim();
+            const motDePasse = document.getElementById('login-password').value;
+
+            if (!email || !motDePasse) {
+                showError('Email et mot de passe sont obligatoires');
+                return;
+            }
+
+            setButtonLoading(button, true, 'Connexion...');
+            apiPost('login', { email: email, motDePasse: motDePasse })
+                .then(result => {
+                    if (!result.ok) {
+                        showError(result.error);
+                        return;
+                    }
+                    document.getElementById('login-password').value = '';
+                    document.getElementById('loginModal').classList.remove('active');
+                    setSession(result.token, result.user);
+                    showSuccess('Bonjour ' + (result.user.prenom || result.user.email));
+                })
+                .catch(error => {
+                    showError('Connexion impossible. Vérifiez votre connexion internet.');
+                    console.error('Erreur:', error);
+                })
+                .finally(() => setButtonLoading(button, false));
+        }
+
+        function submitDemandeLien(button) {
+            const email = document.getElementById('lien-email').value.trim();
+            if (!email) {
+                showError('Saisissez votre adresse e-mail');
+                return;
+            }
+
+            setButtonLoading(button, true, 'Envoi en cours...');
+            apiPost('demandeLien', { email: email })
+                .then(result => {
+                    if (!result.ok) {
+                        showError(result.error);
+                        return;
+                    }
+                    document.getElementById('loginModal').classList.remove('active');
+                    showSuccess(result.message);
+                })
+                .catch(error => {
+                    showError('Envoi impossible. Vérifiez votre connexion internet.');
+                    console.error('Erreur:', error);
+                })
+                .finally(() => setButtonLoading(button, false));
+        }
+
+        /** Ouvre la définition du mot de passe si l'URL porte un lien reçu par e-mail. */
+        function handleResetTokenInUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const token = params.get('resetToken');
+            if (!token) return;
+
+            lienTokenEnCours = token;
+
+            // Le jeton ne doit pas rester dans la barre d'adresse ni dans l'historique.
+            params.delete('resetToken');
+            const reste = params.toString();
+            history.replaceState(null, '', window.location.pathname + (reste ? '?' + reste : '') + window.location.hash);
+
+            document.getElementById('setPasswordModal').classList.add('active');
+            setTimeout(() => document.getElementById('set-password').focus(), 50);
+        }
+
+        function submitSetPassword(button) {
+            const mdp = document.getElementById('set-password').value;
+            const confirmation = document.getElementById('set-password-confirm').value;
+
+            if (mdp.length < 10) {
+                showError('Le mot de passe doit contenir au moins 10 caractères');
+                return;
+            }
+            if (mdp !== confirmation) {
+                showError('Les deux mots de passe ne correspondent pas');
+                return;
+            }
+
+            setButtonLoading(button, true, 'Enregistrement...');
+            apiPost('definirMotDePasse', { lienToken: lienTokenEnCours, motDePasse: mdp })
+                .then(result => {
+                    if (!result.ok) {
+                        showError(result.error);
+                        return;
+                    }
+                    lienTokenEnCours = null;
+                    document.getElementById('set-password').value = '';
+                    document.getElementById('set-password-confirm').value = '';
+                    document.getElementById('setPasswordModal').classList.remove('active');
+                    setSession(result.token, result.user);
+                    showSuccess('Mot de passe enregistré. Vous êtes connecté.');
+                })
+                .catch(error => {
+                    showError('Enregistrement impossible. Vérifiez votre connexion internet.');
+                    console.error('Erreur:', error);
+                })
+                .finally(() => setButtonLoading(button, false));
+        }
 
         window.addEventListener('load', function() {
             const savedData = localStorage.getItem('csvData');
@@ -773,7 +1190,7 @@
                 try {
                     csvData = normalizeKeys(JSON.parse(savedData));
                     filteredData = [...csvData];
-                    
+
                     if (csvData.length > 0) {
                         initializeDataDisplay();
                     }
@@ -781,45 +1198,34 @@
                     console.log('Erreur lors du chargement des données sauvegardées');
                 }
             }
-            
-            // Toujours essayer de charger depuis GitHub
-            loadFromGitHub(true);
-            
+
+            restoreSession();
+            handleResetTokenInUrl();
+
+            // Les lots et les points de suivi sont en lecture publique.
+            loadLotsDepuisSheets(true);
+            loadSuiviData();
+
             // Gérer la navigation par ancre (#cave, #calcul, etc.) dans l'URL
             // Cette partie doit fonctionner MÊME SANS données
-            setTimeout(() => {
-                const hash = window.location.hash.substring(1); // Enlever le #
-                if (hash) {
-                    const buttons = {
-                        'admin': 0,
-                        'lots': 1,
-                        'calcul': 2,
-                        'suivi': 3
-                    };
-                    
-                    if (buttons.hasOwnProperty(hash)) {
-                        const navButtons = document.querySelectorAll('.nav-btn');
-                        const button = navButtons[buttons[hash]];
-                        
-                        if (button) {
-                            showPage(hash, button);
-                        }
-                    }
-                }
-            }, 200);
+            setTimeout(appliquerNavigationParAncre, 200);
         });
 
-        function togglePassword() {
-            const passwordInput = document.getElementById('passwordInput');
-            const toggleButton = document.querySelector('.password-toggle');
-            
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                toggleButton.textContent = '🙈';
-            } else {
-                passwordInput.type = 'password';
-                toggleButton.textContent = '👁️';
-            }
+        function appliquerNavigationParAncre() {
+            const hash = window.location.hash.substring(1); // Enlever le #
+            if (!hash) return;
+
+            const buttons = {
+                'admin': 0,
+                'lots': 1,
+                'calcul': 2,
+                'suivi': 3
+            };
+            if (!buttons.hasOwnProperty(hash)) return;
+
+            const navButtons = document.querySelectorAll('.nav-btn');
+            const button = navButtons[buttons[hash]];
+            if (button) showPage(hash, button);
         }
 
         function normalizeKeys(data) {
@@ -828,7 +1234,7 @@
             return data.map(function(row) {
                 var newRow = {};
                 Object.keys(row).forEach(function(key) {
-                    var cleanKey = key.trim().normalize('NFC');
+                    var cleanKey = key.replace(/^\uFEFF/, '').trim().normalize('NFC');
                     newRow[cleanKey] = row[key];
                 });
                 return newRow;
@@ -853,95 +1259,63 @@
             document.getElementById('no-data-calc-message').style.display = 'none';
         }
 
-        function loadFromGitHub(silent = false) {
-            if (!silent && !isAdminLoggedIn) return;
-            
-            const githubUrl = './data.csv';
-            
-            fetch(githubUrl)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Fichier data.csv non trouvé');
+        /**
+         * Charge les lots depuis la feuille Lots de la Google Sheet (lecture
+         * publique). localStorage ne sert plus que de cache d'affichage, pour
+         * que la liste apparaisse avant la réponse du serveur.
+         */
+        function loadLotsDepuisSheets(silent = false) {
+            return fetch(SUIVI_SCRIPT_URL + '?action=lots')
+                .then(response => response.json())
+                .then(result => {
+                    if (!result.ok) {
+                        if (!silent) showError('Erreur lors du chargement des lots : ' + result.error);
+                        return;
                     }
-                    return response.text();
-                })
-                .then(csvText => {
-                    Papa.parse(csvText, {
-                        header: true,
-                        skipEmptyLines: true,
-                        delimiter: ';',
-                        complete: function(results) {
-                            if (results.errors.length > 0) {
-                                if (!silent) showError('Erreur lors de la lecture du fichier CSV depuis GitHub');
-                                return;
-                            }
 
-                            csvData = normalizeKeys(results.data);
-                            localStorage.setItem('csvData', JSON.stringify(csvData));
-                            initializeDataDisplay();
-
-                            if (!silent) {
-                                const statusDiv = document.getElementById('admin-status');
-                                statusDiv.textContent = `Fichier chargé depuis GitHub - ${csvData.length} lots trouvés`;
-                                statusDiv.style.display = 'block';
-                                statusDiv.className = 'success';
-                                showSuccess('Fichier CSV chargé depuis GitHub avec succès');
-                            }
-
-                            // Gérer la navigation après le chargement
-                            const hash = window.location.hash.substring(1);
-                            if (hash && silent) {
-                                const buttons = {
-                                    'admin': 0,
-                                    'lots': 1,
-                                    'calcul': 2,
-                                    'suivi': 3
-                                };
-
-                                if (buttons.hasOwnProperty(hash)) {
-                                    const navButtons = document.querySelectorAll('.nav-btn');
-                                    const button = navButtons[buttons[hash]];
-
-                                    if (button) {
-                                        setTimeout(() => {
-                                            showPage(hash, button);
-                                        }, 100);
-                                    }
-                                }
-                            }
-                        }
+                    // Les cellules Sheets peuvent revenir en nombres ; on les
+                    // ramène en texte pour rester identique à l'ancien CSV.
+                    const lots = (result.lots || []).map(function (lot) {
+                        const ligne = {};
+                        Object.keys(lot).forEach(function (cle) {
+                            ligne[cle] = lot[cle] === null || lot[cle] === undefined ? '' : String(lot[cle]);
+                        });
+                        return ligne;
                     });
+
+                    csvData = normalizeKeys(lots);
+                    localStorage.setItem('csvData', JSON.stringify(csvData));
+
+                    if (csvData.length > 0) {
+                        initializeDataDisplay();
+                    }
+
+                    if (!silent) {
+                        const statusDiv = document.getElementById('admin-status');
+                        statusDiv.textContent = `${csvData.length} lots chargés depuis Google Sheets`;
+                        statusDiv.style.display = 'block';
+                        statusDiv.className = 'success';
+                        showSuccess('Lots rechargés depuis Google Sheets');
+                    }
                 })
                 .catch(error => {
                     if (!silent) {
-                        showError('Impossible de charger le fichier depuis GitHub. Vérifiez que le fichier data.csv existe dans le repository.');
+                        showError('Impossible de charger les lots. Vérifiez votre connexion internet.');
                     }
-                    console.log('Erreur chargement GitHub:', error);
+                    console.log('Erreur chargement des lots:', error);
                 });
         }
 
-        function handlePasswordKeypress(event) {
-            if (event.key === 'Enter') {
-                checkPassword();
-            }
-        }
-
-        function checkPassword() {
-            const password = document.getElementById('passwordInput').value;
-            const errorDiv = document.getElementById('login-error');
-            
-            if (password === 'RFG123') {
-                isAdminLoggedIn = true;
-                document.getElementById('admin-login').style.display = 'none';
-                document.getElementById('admin-content').style.display = 'block';
-                errorDiv.style.display = 'none';
-            } else {
-                errorDiv.style.display = 'block';
-                document.getElementById('passwordInput').value = '';
-            }
-        }
-
         function showPage(page, button) {
+            // Garde-fou d'affichage : l'onglet Administration n'a de contenu que
+            // pour un administrateur, et le serveur refuse de toute façon toute
+            // action d'administration sans droits.
+            if (page === 'admin' && !estAdmin()) {
+                const navButtons = document.querySelectorAll('.nav-btn');
+                page = 'lots';
+                button = navButtons[1];
+            }
+
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
             document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
 
@@ -959,28 +1333,18 @@
                 subtitle.textContent = 'Points de suivi';
             }
 
-            if (page !== 'admin') {
-                document.getElementById('admin-login').style.display = 'block';
-                document.getElementById('admin-content').style.display = 'none';
-                document.getElementById('passwordInput').value = '';
-                document.getElementById('login-error').style.display = 'none';
-                isAdminLoggedIn = false;
-            }
-
-            if (page !== 'suivi') {
-                document.getElementById('suivi-login').style.display = 'block';
-                document.getElementById('suivi-content').style.display = 'none';
-                document.getElementById('suiviPasswordInput').value = '';
-                document.getElementById('suivi-login-error').style.display = 'none';
-                isSuiviLoggedIn = false;
-            } else if (isSuiviLoggedIn) {
+            if (page === 'admin') {
+                loadUsers();
+            } else if (page === 'suivi') {
                 loadSuiviData();
             }
         }
 
+        /* ============ Administration : import des lots ============ */
+
+        let lotsAImporter = null;
+
         function loadCSV(event) {
-            if (!isAdminLoggedIn) return;
-            
             const file = event.target.files[0];
             if (!file) return;
 
@@ -995,18 +1359,166 @@
                         return;
                     }
 
-                    csvData = normalizeKeys(results.data);
-                    localStorage.setItem('csvData', JSON.stringify(csvData));
-                    initializeDataDisplay();
-                    
-                    const statusDiv = document.getElementById('admin-status');
-                    statusDiv.textContent = `Fichier importé localement - ${csvData.length} lots trouvés`;
-                    statusDiv.style.display = 'block';
-                    statusDiv.className = 'success';
-                    
-                    showSuccess('Fichier CSV chargé avec succès');
+                    lotsAImporter = normalizeKeys(results.data);
+
+                    document.getElementById('import-confirm-text').textContent =
+                        `${lotsAImporter.length} lot(s) lus dans le fichier. Ils remplaceront `
+                        + `intégralement les ${csvData.length} lot(s) actuellement enregistrés `
+                        + `dans la feuille Lots. Cette opération est irréversible.`;
+                    document.getElementById('import-confirm').style.display = 'block';
                 }
             });
+        }
+
+        function annulerImportLots() {
+            lotsAImporter = null;
+            document.getElementById('import-confirm').style.display = 'none';
+            document.getElementById('csvFile').value = '';
+        }
+
+        function confirmerImportLots(button) {
+            if (!lotsAImporter || !lotsAImporter.length) {
+                showError('Aucun fichier à importer');
+                return;
+            }
+
+            setButtonLoading(button, true, 'Import en cours...');
+            apiPost('importLots', { lots: lotsAImporter })
+                .then(result => {
+                    if (!result.ok) {
+                        showError('Erreur lors de l\'import : ' + result.error);
+                        return;
+                    }
+                    annulerImportLots();
+                    showSuccess(result.nombre + ' lots enregistrés dans Google Sheets');
+                    loadLotsDepuisSheets(true);
+
+                    const statusDiv = document.getElementById('admin-status');
+                    statusDiv.textContent = `${result.nombre} lots enregistrés dans la feuille Lots`;
+                    statusDiv.style.display = 'block';
+                    statusDiv.className = 'success';
+                })
+                .catch(error => {
+                    showError('Erreur lors de l\'envoi. Vérifiez votre connexion internet.');
+                    console.error('Erreur:', error);
+                })
+                .finally(() => setButtonLoading(button, false));
+        }
+
+        /* ============ Administration : comptes utilisateurs ============ */
+
+        function loadUsers() {
+            if (!estAdmin()) return;
+
+            apiPost('listUsers', {})
+                .then(result => {
+                    if (!result.ok) {
+                        showError('Erreur lors du chargement des comptes : ' + result.error);
+                        return;
+                    }
+                    renderUsers(result.users || []);
+                })
+                .catch(error => console.error('Erreur:', error));
+        }
+
+        function renderUsers(users) {
+            const tbody = document.getElementById('usersTableBody');
+            tbody.innerHTML = '';
+
+            users.forEach(u => {
+                const tr = document.createElement('tr');
+
+                [
+                    u.email,
+                    u.prenom,
+                    u.nom,
+                    u.estAdmin ? 'Administrateur' : 'Utilisateur',
+                    u.motDePasseDefini ? 'Défini' : 'À définir'
+                ].forEach(texte => {
+                    const td = document.createElement('td');
+                    td.textContent = texte || '—';
+                    tr.appendChild(td);
+                });
+
+                const tdAction = document.createElement('td');
+                const soiMeme = currentUser
+                    && u.email.toLowerCase() === currentUser.email.toLowerCase();
+                if (!soiMeme) {
+                    const btn = document.createElement('button');
+                    btn.className = 'link-btn';
+                    btn.style.color = '#c0392b';
+                    btn.textContent = 'Retirer';
+                    btn.onclick = () => confirmRemoveUser(btn, u.email);
+                    tdAction.appendChild(btn);
+                }
+                tr.appendChild(tdAction);
+
+                tbody.appendChild(tr);
+            });
+        }
+
+        function confirmRemoveUser(button, email) {
+            if (button.dataset.confirm !== '1') {
+                button.dataset.confirm = '1';
+                button.textContent = 'Confirmer ?';
+                return;
+            }
+
+            setButtonLoading(button, true, 'Suppression...');
+            apiPost('removeUser', { email: email })
+                .then(result => {
+                    if (!result.ok) {
+                        showError(result.error);
+                        setButtonLoading(button, false);
+                        button.dataset.confirm = '';
+                        button.textContent = 'Retirer';
+                        return;
+                    }
+                    showSuccess('Compte retiré : ' + result.email);
+                    loadUsers();
+                })
+                .catch(error => {
+                    showError('Erreur lors de l\'envoi. Vérifiez votre connexion internet.');
+                    console.error('Erreur:', error);
+                    setButtonLoading(button, false);
+                });
+        }
+
+        function submitAddUser(button) {
+            const email = document.getElementById('nu-email').value.trim();
+            if (!email) {
+                showError('L\'adresse e-mail est obligatoire');
+                return;
+            }
+
+            setButtonLoading(button, true, 'Création en cours...');
+            apiPost('addUser', {
+                email: email,
+                prenom: document.getElementById('nu-prenom').value.trim(),
+                nom: document.getElementById('nu-nom').value.trim(),
+                estAdmin: document.getElementById('nu-admin').value === 'true'
+            })
+                .then(result => {
+                    if (!result.ok) {
+                        showError(result.error);
+                        return;
+                    }
+                    document.getElementById('nu-email').value = '';
+                    document.getElementById('nu-prenom').value = '';
+                    document.getElementById('nu-nom').value = '';
+                    document.getElementById('nu-admin').value = 'false';
+
+                    showSuccess(result.invitationEnvoyee
+                        ? 'Compte créé. Une invitation a été envoyée à ' + result.user.email
+                        : 'Compte créé, mais l\'invitation n\'a pas pu être envoyée. '
+                          + 'Demandez à l\'utilisateur d\'utiliser « Première connexion ».');
+                    loadUsers();
+                })
+                .catch(error => {
+                    showError('Erreur lors de l\'envoi. Vérifiez votre connexion internet.');
+                    console.error('Erreur:', error);
+                })
+                .finally(() => setButtonLoading(button, false));
         }
 
         function populateTable() {
@@ -1221,41 +1733,6 @@
 
             resultsContent.innerHTML = html;
             resultsSection.style.display = 'block';
-        }
-
-        function toggleSuiviPassword() {
-            const passwordInput = document.getElementById('suiviPasswordInput');
-            const toggleButton = document.querySelector('#suivi-login .password-toggle');
-
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                toggleButton.textContent = '🙈';
-            } else {
-                passwordInput.type = 'password';
-                toggleButton.textContent = '👁️';
-            }
-        }
-
-        function handleSuiviPasswordKeypress(event) {
-            if (event.key === 'Enter') {
-                checkSuiviPassword();
-            }
-        }
-
-        function checkSuiviPassword() {
-            const password = document.getElementById('suiviPasswordInput').value;
-            const errorDiv = document.getElementById('suivi-login-error');
-
-            if (password === 'RFG123') {
-                isSuiviLoggedIn = true;
-                document.getElementById('suivi-login').style.display = 'none';
-                document.getElementById('suivi-content').style.display = 'block';
-                errorDiv.style.display = 'none';
-                loadSuiviData();
-            } else {
-                errorDiv.style.display = 'block';
-                document.getElementById('suiviPasswordInput').value = '';
-            }
         }
 
         function loadSuiviData() {
@@ -1540,7 +2017,7 @@
             document.getElementById('np-description').value = '';
             document.getElementById('np-resume').value = '';
             document.getElementById('np-dateOuverture').value = new Date().toISOString().slice(0, 10);
-            document.getElementById('np-statut').value = 'Ouvert';
+            document.getElementById('np-statut').value = 'En cours';
             document.getElementById('np-responsable').value = '';
             document.getElementById('np-dateEcheance').value = '';
             document.getElementById('np-priorite').value = '';
@@ -1584,8 +2061,7 @@
 
             setButtonLoading(button, true, 'Création en cours...');
 
-            const data = {
-                action: 'create',
+            apiPost('create', {
                 sujet: sujet,
                 resume: resume,
                 description: document.getElementById('np-description').value,
@@ -1595,14 +2071,7 @@
                 dateEcheance: document.getElementById('np-dateEcheance').value,
                 priorite: document.getElementById('np-priorite').value,
                 document: document.getElementById('np-document').value
-            };
-
-            fetch(SUIVI_SCRIPT_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify(data)
             })
-                .then(response => response.json())
                 .then(result => {
                     if (!result.ok) {
                         showError('Erreur lors de la création du point : ' + result.error);
@@ -1629,6 +2098,14 @@
             document.getElementById('suivi-rename-form').style.display = 'none';
             document.getElementById('suivi-rename-sujet').value = point.Sujet || '';
             resetDeleteConfirm();
+
+            // Renommer et supprimer sont réservés aux administrateurs ; l'ajout
+            // d'un suivi à tout utilisateur connecté. Le serveur refuse de toute
+            // façon ces actions sans les droits correspondants.
+            document.getElementById('suivi-rename-btn').style.display = estAdmin() ? '' : 'none';
+            document.getElementById('suivi-delete-btn').style.display = estAdmin() ? '' : 'none';
+            document.getElementById('suivi-ajout-form').style.display = estConnecte() ? 'block' : 'none';
+            document.getElementById('suivi-ajout-refuse').style.display = estConnecte() ? 'none' : 'block';
 
             const body = document.getElementById('suivi-modal-body');
             body.innerHTML = '';
@@ -1671,10 +2148,24 @@
             }
 
             addField('Date d\'ouverture', formatDateFR(point.DateOuverture));
-            addEditableField('Statut', 'statut', ['Ouvert', 'Clos'], point.Statut);
+
+            // Clôturer comme rouvrir un point sont réservés aux administrateurs :
+            // pour les autres, le statut est affiché en lecture seule.
+            if (estAdmin()) {
+                addEditableField('Statut', 'statut', ['En cours', 'Clos'], point.Statut);
+            } else {
+                addField('Statut', point.Statut);
+            }
+
             addField('Responsable', point.Responsable);
             addField('Date d\'échéance', formatDateFR(point.DateEcheance));
-            addEditableField('Priorité', 'priorite', ['', 'Haute', 'Moyenne', 'Basse'], point.Priorite);
+
+            if (estConnecte()) {
+                addEditableField('Priorité', 'priorite', ['', 'Haute', 'Moyenne', 'Basse'], point.Priorite);
+            } else {
+                addField('Priorité', point.Priorite);
+            }
+
             addField('Description', point.Description);
 
             renderSuiviHistoriqueList(id);
@@ -1690,18 +2181,12 @@
 
         function quickUpdatePointField(id, field, value, label) {
             const payload = {
-                action: 'ajoutSuivi',
                 id: id,
                 note: label + ' modifié : ' + (value || '(vide)')
             };
             payload[field] = value;
 
-            fetch(SUIVI_SCRIPT_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify(payload)
-            })
-                .then(response => response.json())
+            apiPost('ajoutSuivi', payload)
                 .then(result => {
                     if (!result.ok) {
                         showError('Erreur lors de la mise à jour : ' + result.error);
@@ -1756,17 +2241,21 @@
                 }
                 const dateDiv = document.createElement('div');
                 dateDiv.style.cssText = 'font-size:12px;color:#666;';
-                dateDiv.textContent = date;
+                dateDiv.textContent = h.Auteur ? date + ' · ' + h.Auteur : date;
                 resumeCol.appendChild(dateDiv);
 
-                const editBtn = document.createElement('button');
-                editBtn.type = 'button';
-                editBtn.textContent = '✎ Modifier';
-                editBtn.style.cssText = 'background:none;border:none;cursor:pointer;color:#4a90e2;font-size:12px;white-space:nowrap;';
-                editBtn.onclick = () => toggleEditHisto(h.HistoId);
-
                 headerRow.appendChild(resumeCol);
-                headerRow.appendChild(editBtn);
+
+                // Corriger une entrée déjà enregistrée : administrateurs seuls.
+                if (estAdmin()) {
+                    const editBtn = document.createElement('button');
+                    editBtn.type = 'button';
+                    editBtn.textContent = '✎ Modifier';
+                    editBtn.style.cssText = 'background:none;border:none;cursor:pointer;color:#4a90e2;font-size:12px;white-space:nowrap;';
+                    editBtn.onclick = () => toggleEditHisto(h.HistoId);
+                    headerRow.appendChild(editBtn);
+                }
+
                 entryDiv.appendChild(headerRow);
 
                 const noteDiv = document.createElement('div');
@@ -1834,7 +2323,7 @@
 
                 const statutSelect = mk('select', {});
                 statutSelect.style.cssText = 'padding:8px;border:2px solid #e1e5e9;border-radius:5px;margin-bottom:8px;';
-                ['', 'Ouvert', 'Clos'].forEach(v => {
+                ['', 'En cours', 'Clos'].forEach(v => {
                     const opt = mk('option', { value: v, textContent: v || '--' });
                     if (v === (h.Statut || '')) opt.selected = true;
                     statutSelect.appendChild(opt);
@@ -1885,12 +2374,7 @@
                 return;
             }
 
-            fetch(SUIVI_SCRIPT_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify(Object.assign({ action: 'editSuivi', histoId: histoId }, fields))
-            })
-                .then(response => response.json())
+            apiPost('editSuivi', Object.assign({ histoId: histoId }, fields))
                 .then(result => {
                     if (!result.ok) {
                         showError('Erreur lors de la modification : ' + result.error);
@@ -1932,22 +2416,14 @@
 
             setButtonLoading(button, true, 'Envoi en cours...');
 
-            const data = {
-                action: 'ajoutSuivi',
+            apiPost('ajoutSuivi', {
                 id: currentOpenSuiviId,
                 note: note,
                 resume: resume,
                 responsable: responsable,
                 dateEcheance: document.getElementById('suivi-new-echeance').value,
                 document: document.getElementById('suivi-new-document').value
-            };
-
-            fetch(SUIVI_SCRIPT_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify(data)
             })
-                .then(response => response.json())
                 .then(result => {
                     if (!result.ok) {
                         showError('Erreur lors de l\'ajout du suivi : ' + result.error);
@@ -1976,12 +2452,7 @@
                 return;
             }
 
-            fetch(SUIVI_SCRIPT_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: 'renamePoint', id: currentOpenSuiviId, sujet: sujet })
-            })
-                .then(response => response.json())
+            apiPost('renamePoint', { id: currentOpenSuiviId, sujet: sujet })
                 .then(result => {
                     if (!result.ok) {
                         showError('Erreur lors du renommage : ' + result.error);
@@ -2024,12 +2495,7 @@
             const btn = document.getElementById('suivi-delete-btn');
             setButtonLoading(btn, true, 'Suppression...');
 
-            fetch(SUIVI_SCRIPT_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: 'deletePoint', id: currentOpenSuiviId })
-            })
-                .then(response => response.json())
+            apiPost('deletePoint', { id: currentOpenSuiviId })
                 .then(result => {
                     if (!result.ok) {
                         showError('Erreur lors de la suppression : ' + result.error);
