@@ -495,6 +495,112 @@
             margin-top: 10px;
             line-height: 1.5;
         }
+
+        /* Fiche d'un point : description initiale, puis deux lignes compactes. */
+        .fiche-description {
+            margin-bottom: 18px;
+            padding: 12px 15px;
+            background: #f0f7ff;
+            border-left: 4px solid #4a90e2;
+            border-radius: 8px;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .fiche-ligne {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            padding: 10px 0;
+            border-bottom: 1px solid #e1e5e9;
+        }
+
+        .fiche-ligne:last-of-type {
+            border-bottom: none;
+        }
+
+        .fiche-case {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 120px;
+        }
+
+        .fiche-case-label {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.6px;
+            text-transform: uppercase;
+            color: #7a8a9a;
+        }
+
+        .fiche-case-valeur {
+            color: #333;
+            font-size: 15px;
+        }
+
+        /* Entrées d'historique : cadre marqué pour bien les séparer. */
+        .histo-entree {
+            padding: 14px 16px;
+            margin-bottom: 14px;
+            border: 2px solid #bdccdd;
+            border-radius: 8px;
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+
+        .histo-afaire {
+            font-weight: 600;
+            color: #2c5aa0;
+            font-size: 15px;
+        }
+
+        .histo-auteur {
+            font-size: 12px;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        .histo-note {
+            margin-top: 8px;
+            line-height: 1.5;
+        }
+
+        .histo-details {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #e1e5e9;
+            font-size: 13px;
+            color: #2c5aa0;
+        }
+
+        .password-container {
+            position: relative;
+        }
+
+        .password-container input {
+            width: 100%;
+            padding-right: 45px;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #666;
+            font-size: 15px;
+            line-height: 1;
+            padding: 0;
+            user-select: none;
+        }
+
+        .password-toggle:hover {
+            color: #4a90e2;
+        }
     </style>
 </head>
 <body>
@@ -532,6 +638,11 @@
 
                     <div style="border-top: 2px solid #e1e5e9; padding-top: 20px;">
                         <h4>Importer un nouveau fichier CSV</h4>
+                        <button class="calc-btn" id="modele-btn" onclick="telechargerModeleLots(this)" style="margin-bottom:12px;">Télécharger le modèle</button>
+                        <p class="info-note" style="margin-bottom:15px;">
+                            Fichier CSV aux colonnes attendues, avec une ligne d'exemple à remplacer
+                            par vos données avant de le réimporter ci-dessous.
+                        </p>
                         <input type="file" id="csvFile" accept=".csv" onchange="loadCSV(event)">
                         <p>Le fichier doit contenir les colonnes : N° cop, Copropriétaire, Type, Description, N° lot, Escalier, Etage, Façade, Porte cave, N° plan, Clé 1 : charges générales, Clé 3 : ascenceurs, Description complète</p>
                         <div id="import-confirm" style="display:none;margin-top:15px;padding:15px;background:#fff3cd;border-radius:8px;color:#856404;">
@@ -711,14 +822,21 @@
 
                 <div class="table-container">
                     <table id="suiviTable">
+                        <colgroup>
+                            <col style="width:5%">
+                            <col style="width:25%">
+                            <col style="width:35%">
+                            <col style="width:15%">
+                            <col style="width:12%">
+                            <col style="width:8%">
+                        </colgroup>
                         <thead>
                             <tr>
                                 <th onclick="sortSuiviTableByColumn(0)">N° ↕</th>
                                 <th onclick="sortSuiviTableByColumn(1)">Sujet ↕</th>
-                                <th>Synthèse (dernier suivi)</th>
-                                <th onclick="sortSuiviTableByColumn(3)">Statut ↕</th>
-                                <th onclick="sortSuiviTableByColumn(4)">Responsable ↕</th>
-                                <th onclick="sortSuiviTableByColumn(5)">Échéance ↕</th>
+                                <th>À faire</th>
+                                <th onclick="sortSuiviTableByColumn(3)">Responsable ↕</th>
+                                <th onclick="sortSuiviTableByColumn(4)">Échéance ↕</th>
                                 <th>Fiche</th>
                             </tr>
                         </thead>
@@ -752,8 +870,8 @@
                 <textarea id="np-description" rows="3" style="width:100%;padding:10px;border:2px solid #e1e5e9;border-radius:5px;font-family:'Aptos',sans-serif;"></textarea>
             </div>
             <div class="form-group" style="margin-bottom:12px;">
-                <label>Résumé (20 caractères max, affiché dans la liste)</label>
-                <input type="text" id="np-resume" maxlength="20" placeholder="Ex: RV le 15/07">
+                <label>À faire (30 caractères max, affiché dans la liste)</label>
+                <input type="text" id="np-resume" maxlength="30" placeholder="Ex: relancer le syndic">
             </div>
             <div class="form-row">
                 <div class="form-group">
@@ -810,7 +928,7 @@
             <div id="suivi-modal-body"></div>
             <div style="margin-top:20px;border-top:2px solid #e1e5e9;padding-top:15px;">
                 <h4 style="color:#2c5aa0;margin-bottom:10px;">Historique</h4>
-                <div id="suivi-historique-list" style="max-height:200px;overflow-y:auto;margin-bottom:15px;"></div>
+                <div id="suivi-historique-list" style="max-height:360px;overflow-y:auto;padding-right:6px;margin-bottom:15px;"></div>
 
                 <div id="suivi-ajout-refuse" class="info-note" style="display:none;">
                     Connectez-vous pour ajouter un suivi à ce point.
@@ -820,8 +938,8 @@
                 <h4 style="color:#2c5aa0;margin-bottom:10px;">Ajouter un suivi</h4>
                 <textarea id="suivi-new-comment" rows="2" placeholder="Note détaillée (obligatoire)..." style="width:100%;padding:10px;border:2px solid #e1e5e9;border-radius:5px;font-family:'Aptos',sans-serif;margin-bottom:10px;"></textarea>
                 <div class="form-group" style="margin-bottom:12px;">
-                    <label>Résumé (20 caractères max, affiché dans la liste)</label>
-                    <input type="text" id="suivi-new-resume" maxlength="20" placeholder="Ex: RV le 15/07">
+                    <label>À faire (30 caractères max, affiché dans la liste)</label>
+                    <input type="text" id="suivi-new-resume" maxlength="30" placeholder="Ex: relancer le syndic">
                 </div>
                 <div class="form-row">
                     <div class="form-group">
@@ -829,7 +947,7 @@
                         <input type="text" id="suivi-new-responsable">
                     </div>
                     <div class="form-group">
-                        <label>Date d'échéance</label>
+                        <label>Date d'échéance (facultative)</label>
                         <input type="date" id="suivi-new-echeance">
                     </div>
                     <div class="form-group">
@@ -869,7 +987,10 @@
                 </div>
                 <div class="form-group" style="margin-bottom:16px;">
                     <label for="login-password">Mot de passe</label>
-                    <input type="password" id="login-password" autocomplete="current-password" onkeypress="if(event.key==='Enter')submitLogin(document.getElementById('login-submit-btn'))">
+                    <div class="password-container">
+                        <input type="password" id="login-password" autocomplete="current-password" onkeypress="if(event.key==='Enter')submitLogin(document.getElementById('login-submit-btn'))">
+                        <button type="button" class="password-toggle" onclick="togglePasswordField('login-password', this)" title="Afficher le mot de passe" aria-label="Afficher le mot de passe">👁️</button>
+                    </div>
                 </div>
                 <button class="calc-btn" id="login-submit-btn" onclick="submitLogin(this)">Se connecter</button>
                 <p style="margin-top:15px;">
@@ -904,11 +1025,17 @@
             </p>
             <div class="form-group" style="margin-bottom:12px;">
                 <label for="set-password">Nouveau mot de passe</label>
-                <input type="password" id="set-password" autocomplete="new-password">
+                <div class="password-container">
+                    <input type="password" id="set-password" autocomplete="new-password">
+                    <button type="button" class="password-toggle" onclick="togglePasswordField('set-password', this)" title="Afficher le mot de passe" aria-label="Afficher le mot de passe">👁️</button>
+                </div>
             </div>
             <div class="form-group" style="margin-bottom:16px;">
                 <label for="set-password-confirm">Confirmation</label>
-                <input type="password" id="set-password-confirm" autocomplete="new-password" onkeypress="if(event.key==='Enter')submitSetPassword(document.getElementById('set-password-btn'))">
+                <div class="password-container">
+                    <input type="password" id="set-password-confirm" autocomplete="new-password" onkeypress="if(event.key==='Enter')submitSetPassword(document.getElementById('set-password-btn'))">
+                    <button type="button" class="password-toggle" onclick="togglePasswordField('set-password-confirm', this)" title="Afficher le mot de passe" aria-label="Afficher le mot de passe">👁️</button>
+                </div>
             </div>
             <button class="calc-btn" id="set-password-btn" onclick="submitSetPassword(this)">Enregistrer et se connecter</button>
         </div>
@@ -940,6 +1067,34 @@
 
         function estConnecte() { return !!currentUser; }
         function estAdmin() { return !!(currentUser && currentUser.estAdmin); }
+
+        /** Bascule un champ de mot de passe entre masqué et lisible. */
+        function togglePasswordField(inputId, button) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+
+            const masque = input.type === 'password';
+            input.type = masque ? 'text' : 'password';
+            button.textContent = masque ? '🙈' : '👁️';
+
+            const titre = masque ? 'Masquer le mot de passe' : 'Afficher le mot de passe';
+            button.title = titre;
+            button.setAttribute('aria-label', titre);
+        }
+
+        /** Remasque tous les champs de mot de passe (à la fermeture d'une modale). */
+        function masquerMotsDePasse() {
+            document.querySelectorAll('.password-container').forEach(function (conteneur) {
+                const input = conteneur.querySelector('input');
+                const bouton = conteneur.querySelector('.password-toggle');
+                if (input) input.type = 'password';
+                if (bouton) {
+                    bouton.textContent = '👁️';
+                    bouton.title = 'Afficher le mot de passe';
+                    bouton.setAttribute('aria-label', 'Afficher le mot de passe');
+                }
+            });
+        }
 
         function apiPost(action, payload) {
             const body = Object.assign({ action: action }, payload || {});
@@ -1063,6 +1218,7 @@
         function openLoginModal() {
             showLoginStep('credentials');
             document.getElementById('login-password').value = '';
+            masquerMotsDePasse();
             document.getElementById('loginModal').classList.add('active');
             setTimeout(() => document.getElementById('login-email').focus(), 50);
         }
@@ -1094,10 +1250,14 @@
             apiPost('login', { email: email, motDePasse: motDePasse })
                 .then(result => {
                     if (!result.ok) {
+                        // Compte connu sans mot de passe : on bascule directement
+                        // sur la demande de lien, l'e-mail est déjà repris.
+                        if (result.code === 'MOT_DE_PASSE_NON_DEFINI') showLoginStep('lien');
                         showError(result.error);
                         return;
                     }
                     document.getElementById('login-password').value = '';
+                    masquerMotsDePasse();
                     document.getElementById('loginModal').classList.remove('active');
                     setSession(result.token, result.user);
                     showSuccess('Bonjour ' + (result.user.prenom || result.user.email));
@@ -1173,6 +1333,7 @@
                     lienTokenEnCours = null;
                     document.getElementById('set-password').value = '';
                     document.getElementById('set-password-confirm').value = '';
+                    masquerMotsDePasse();
                     document.getElementById('setPasswordModal').classList.remove('active');
                     setSession(result.token, result.user);
                     showSuccess('Mot de passe enregistré. Vous êtes connecté.');
@@ -1368,6 +1529,58 @@
                     document.getElementById('import-confirm').style.display = 'block';
                 }
             });
+        }
+
+        /**
+         * Modèle CSV vierge des lots. Les colonnes viennent du serveur plutôt
+         * que d'une liste recopiée ici, pour qu'elles ne puissent pas diverger
+         * de celles que l'import valide.
+         */
+        function telechargerModeleLots(button) {
+            setButtonLoading(button, true, 'Préparation...');
+
+            return fetch(SUIVI_SCRIPT_URL + '?action=modeleLots')
+                .then(response => response.json())
+                .then(result => {
+                    if (!result.ok) {
+                        showError('Impossible de récupérer le modèle : ' + result.error);
+                        return;
+                    }
+
+                    const lignes = [result.entetes];
+                    if (result.exemple && result.exemple.length) lignes.push(result.exemple);
+
+                    // BOM UTF-8 : sans lui, Excel abîme « Copropriétaire » et « Façade ».
+                    const csv = '\uFEFF' + lignes.map(ligne => ligne.map(champCsv).join(';')).join('\r\n') + '\r\n';
+                    declencherTelechargement(csv, 'modele-lots.csv');
+                    showSuccess('Modèle téléchargé');
+                })
+                .catch(error => {
+                    showError('Impossible de récupérer le modèle. Vérifiez votre connexion internet.');
+                    console.error('Erreur:', error);
+                })
+                .finally(() => setButtonLoading(button, false));
+        }
+
+        /** Échappe un champ CSV : guillemets doublés, entourage si nécessaire. */
+        function champCsv(valeur) {
+            const texte = valeur === null || valeur === undefined ? '' : String(valeur);
+            if (/[";\r\n]/.test(texte)) {
+                return '"' + texte.replace(/"/g, '""') + '"';
+            }
+            return texte;
+        }
+
+        function declencherTelechargement(contenu, nomFichier) {
+            const blob = new Blob([contenu], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const lien = document.createElement('a');
+            lien.href = url;
+            lien.download = nomFichier;
+            document.body.appendChild(lien);
+            lien.click();
+            document.body.removeChild(lien);
+            URL.revokeObjectURL(url);
         }
 
         function annulerImportLots() {
@@ -1967,7 +2180,6 @@
                     '<td>' + (point.ID || '') + '</td>' +
                     '<td>' + (point.Sujet || '') + '</td>' +
                     '<td>' + computeSynthese(point.ID) + '</td>' +
-                    '<td>' + (point.Statut || '') + '</td>' +
                     '<td>' + (point.Responsable || '') + '</td>' +
                     '<td>' + echeanceHtml + '</td>' +
                     '<td><button class="btn-fiche" onclick="openSuiviFiche(\'' + point.ID + '\')">📄 Fiche</button></td>';
@@ -2055,7 +2267,7 @@
                 return;
             }
             if (!resume) {
-                showError('Le résumé (20 caractères max) est obligatoire');
+                showError('Le champ « À faire » (30 caractères max) est obligatoire');
                 return;
             }
 
@@ -2110,28 +2322,47 @@
             const body = document.getElementById('suivi-modal-body');
             body.innerHTML = '';
 
-            function addField(label, valueText) {
-                const div = document.createElement('div');
-                div.className = 'modal-field';
-                const lbl = document.createElement('span');
-                lbl.className = 'modal-label';
-                lbl.textContent = label;
-                const val = document.createElement('span');
-                val.className = 'modal-value';
-                val.textContent = valueText || '—';
-                div.appendChild(lbl);
-                div.appendChild(val);
-                body.appendChild(div);
+            // --- Description initiale, juste sous le titre ---
+            if (point.Description) {
+                const desc = document.createElement('div');
+                desc.className = 'fiche-description';
+                desc.textContent = point.Description;
+                body.appendChild(desc);
             }
 
-            function addEditableField(label, field, options, currentValue) {
-                const div = document.createElement('div');
-                div.className = 'modal-field';
+            // --- Deux lignes compactes : libellé au-dessus de la valeur ---
+            function creerLigne() {
+                const ligne = document.createElement('div');
+                ligne.className = 'fiche-ligne';
+                body.appendChild(ligne);
+                return ligne;
+            }
+
+            function ajouterCase(ligne, label, contenu) {
+                const bloc = document.createElement('div');
+                bloc.className = 'fiche-case';
+
                 const lbl = document.createElement('span');
-                lbl.className = 'modal-label';
+                lbl.className = 'fiche-case-label';
                 lbl.textContent = label;
+                bloc.appendChild(lbl);
+
+                if (typeof contenu === 'string') {
+                    const val = document.createElement('span');
+                    val.className = 'fiche-case-valeur';
+                    val.textContent = contenu || '—';
+                    bloc.appendChild(val);
+                } else {
+                    bloc.appendChild(contenu);
+                }
+
+                ligne.appendChild(bloc);
+            }
+
+            /** Liste déroulante enregistrant immédiatement via un ajout d'historique. */
+            function creerSelect(label, field, options, currentValue) {
                 const select = document.createElement('select');
-                select.style.cssText = 'padding:4px 8px;border:1px solid #e1e5e9;border-radius:5px;font-family:\'Aptos\',sans-serif;';
+                select.style.cssText = "padding:4px 8px;border:1px solid #e1e5e9;border-radius:5px;font-family:'Aptos',sans-serif;";
                 options.forEach(v => {
                     const opt = document.createElement('option');
                     opt.value = v;
@@ -2142,37 +2373,32 @@
                 select.onchange = function () {
                     quickUpdatePointField(id, field, select.value, label);
                 };
-                div.appendChild(lbl);
-                div.appendChild(select);
-                body.appendChild(div);
+                return select;
             }
 
-            addField('Date d\'ouverture', formatDateFR(point.DateOuverture));
+            const ligne1 = creerLigne();
+            ajouterCase(ligne1, 'Ouverture', formatDateFR(point.DateOuverture));
 
-            // Clôturer comme rouvrir un point sont réservés aux administrateurs :
-            // pour les autres, le statut est affiché en lecture seule.
-            if (estAdmin()) {
-                addEditableField('Statut', 'statut', ['En cours', 'Clos'], point.Statut);
-            } else {
-                addField('Statut', point.Statut);
-            }
+            // Clôturer comme rouvrir un point sont réservés aux administrateurs ;
+            // la priorité est modifiable par tout utilisateur connecté.
+            ajouterCase(ligne1, 'Statut', estAdmin()
+                ? creerSelect('Statut', 'statut', ['En cours', 'Clos'], point.Statut)
+                : String(point.Statut || ''));
 
-            addField('Responsable', point.Responsable);
-            addField('Date d\'échéance', formatDateFR(point.DateEcheance));
+            ajouterCase(ligne1, 'Priorité', estConnecte()
+                ? creerSelect('Priorité', 'priorite', ['', 'Haute', 'Moyenne', 'Basse'], point.Priorite)
+                : String(point.Priorite || ''));
 
-            if (estConnecte()) {
-                addEditableField('Priorité', 'priorite', ['', 'Haute', 'Moyenne', 'Basse'], point.Priorite);
-            } else {
-                addField('Priorité', point.Priorite);
-            }
-
-            addField('Description', point.Description);
+            // Responsable et échéance affichent la dernière valeur saisie en suivi :
+            // ils se modifient en ajoutant un suivi, pas directement ici.
+            const ligne2 = creerLigne();
+            ajouterCase(ligne2, 'Responsable', String(point.Responsable || ''));
+            ajouterCase(ligne2, 'Échéance', formatDateFR(point.DateEcheance));
 
             renderSuiviHistoriqueList(id);
 
             document.getElementById('suivi-new-comment').value = '';
             document.getElementById('suivi-new-resume').value = '';
-            document.getElementById('suivi-new-responsable').value = '';
             document.getElementById('suivi-new-echeance').value = '';
             document.getElementById('suivi-new-document').value = '';
 
@@ -2219,32 +2445,40 @@
             }
 
             entries.forEach(h => {
-                const date = h.Date ? formatDateFR(h.Date) + ' ' + new Date(h.Date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
-                let details = [];
+                // Dernière ligne : responsable et échéance propres à ce suivi,
+                // puis statut et priorité seulement s'ils ont changé à ce moment-là.
+                const details = [
+                    'Responsable : ' + (h.Responsable || '—'),
+                    'Échéance : ' + (h.DateEcheance ? formatDateFR(h.DateEcheance) : '—')
+                ];
                 if (h.Statut) details.push('Statut : ' + h.Statut);
-                if (h.Responsable) details.push('Responsable : ' + h.Responsable);
-                if (h.DateEcheance) details.push('Échéance : ' + formatDateFR(h.DateEcheance));
                 if (h.Priorite) details.push('Priorité : ' + h.Priorite);
 
                 const entryDiv = document.createElement('div');
-                entryDiv.style.cssText = 'padding:12px 14px;margin-bottom:10px;border:1px solid #d5dce3;border-radius:8px;background:#fafbfc;';
+                entryDiv.className = 'histo-entree';
 
                 const headerRow = document.createElement('div');
                 headerRow.style.cssText = 'display:flex;justify-content:space-between;align-items:flex-start;gap:10px;';
 
-                const resumeCol = document.createElement('div');
+                const titreCol = document.createElement('div');
                 if (h.Resume) {
-                    const resumeDiv = document.createElement('div');
-                    resumeDiv.style.cssText = 'font-weight:600;color:#2c5aa0;';
-                    resumeDiv.textContent = h.Resume;
-                    resumeCol.appendChild(resumeDiv);
+                    const afaireDiv = document.createElement('div');
+                    afaireDiv.className = 'histo-afaire';
+                    afaireDiv.textContent = h.Resume;
+                    titreCol.appendChild(afaireDiv);
                 }
-                const dateDiv = document.createElement('div');
-                dateDiv.style.cssText = 'font-size:12px;color:#666;';
-                dateDiv.textContent = h.Auteur ? date + ' · ' + h.Auteur : date;
-                resumeCol.appendChild(dateDiv);
 
-                headerRow.appendChild(resumeCol);
+                // Les entrées créées avant la colonne Auteur n'en portent pas :
+                // on se contente alors de la date.
+                const auteurDiv = document.createElement('div');
+                auteurDiv.className = 'histo-auteur';
+                const dateFR = h.Date ? formatDateFR(h.Date) : '';
+                auteurDiv.textContent = h.Auteur
+                    ? 'ajouté par ' + h.Auteur + ' le ' + dateFR
+                    : 'ajouté le ' + dateFR;
+                titreCol.appendChild(auteurDiv);
+
+                headerRow.appendChild(titreCol);
 
                 // Corriger une entrée déjà enregistrée : administrateurs seuls.
                 if (estAdmin()) {
@@ -2259,16 +2493,14 @@
                 entryDiv.appendChild(headerRow);
 
                 const noteDiv = document.createElement('div');
-                noteDiv.style.cssText = 'margin-top:6px;';
+                noteDiv.className = 'histo-note';
                 noteDiv.textContent = h.Note || '';
                 entryDiv.appendChild(noteDiv);
 
-                if (details.length) {
-                    const detailsDiv = document.createElement('div');
-                    detailsDiv.style.cssText = 'font-size:13px;color:#2c5aa0;';
-                    detailsDiv.textContent = details.join(' · ');
-                    entryDiv.appendChild(detailsDiv);
-                }
+                const detailsDiv = document.createElement('div');
+                detailsDiv.className = 'histo-details';
+                detailsDiv.textContent = details.join(' · ');
+                entryDiv.appendChild(detailsDiv);
 
                 if (h.Document) {
                     const docDiv = document.createElement('div');
@@ -2312,7 +2544,7 @@
                 const noteInput = mk('textarea', { rows: 2, value: h.Note || '' });
                 noteInput.style.cssText = 'width:100%;padding:8px;border:2px solid #e1e5e9;border-radius:5px;font-family:\'Aptos\',sans-serif;margin-bottom:8px;';
 
-                const resumeInput = mk('input', { type: 'text', maxLength: 20, value: h.Resume || '' });
+                const resumeInput = mk('input', { type: 'text', maxLength: 30, value: h.Resume || '' });
                 resumeInput.style.cssText = 'width:100%;padding:8px;border:2px solid #e1e5e9;border-radius:5px;margin-bottom:8px;';
 
                 const responsableInput = mk('input', { type: 'text', value: h.Responsable || '', placeholder: 'Responsable' });
@@ -2352,7 +2584,7 @@
 
                 container.appendChild(label('Note'));
                 container.appendChild(noteInput);
-                container.appendChild(label('Résumé (20 car. max)'));
+                container.appendChild(label('À faire (30 car. max)'));
                 container.appendChild(resumeInput);
                 container.appendChild(label('Responsable / Échéance / Statut'));
                 const row = mk('div', {});
@@ -2406,7 +2638,7 @@
                 return;
             }
             if (!resume) {
-                showError('Le résumé (20 caractères max) est obligatoire');
+                showError('Le champ « À faire » (30 caractères max) est obligatoire');
                 return;
             }
             if (!responsable) {
@@ -2416,6 +2648,9 @@
 
             setButtonLoading(button, true, 'Envoi en cours...');
 
+            // Responsable et échéance sont propres à ce suivi : ils sont conservés
+            // dans l'entrée d'historique, et c'est la dernière valeur saisie que
+            // le serveur reporte dans l'état courant du point.
             apiPost('ajoutSuivi', {
                 id: currentOpenSuiviId,
                 note: note,

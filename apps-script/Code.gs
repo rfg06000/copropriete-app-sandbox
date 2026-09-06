@@ -59,6 +59,14 @@ const LOTS_HEADERS = [
   'Clé 1 : charges générales', 'Clé 3 : ascenceurs', 'Description complète'
 ];
 
+// Ligne d'exemple du modèle CSV téléchargeable, dans l'ordre de LOTS_HEADERS.
+// Elle vit ici pour ne pas pouvoir diverger des colonnes que l'import valide.
+const LOTS_EXEMPLE = [
+  '1', 'DUPONT Jean (Monsieur)', 'Appartement', 'T3', '15',
+  'A', '2', 'Sud', '', '101',
+  '125', '90', 'Un appartement de trois pièces au deuxième étage'
+];
+
 const CACHE_FIELDS = ['Responsable', 'DateEcheance', 'Priorite', 'Statut'];
 
 const STATUT_EN_COURS = 'En cours';
@@ -564,6 +572,12 @@ function doGet(e) {
       return jsonOut_({ ok: true, lots: readAllLots_() });
     }
 
+    // Colonnes attendues par l'import, pour que le front puisse produire un
+    // modèle CSV qui ne risque pas de diverger de ce que le serveur valide.
+    if (action === 'modeleLots') {
+      return jsonOut_({ ok: true, entetes: LOTS_HEADERS, exemple: LOTS_EXEMPLE });
+    }
+
     return jsonOut_({ ok: false, error: 'Unknown action: ' + action });
   } catch (err) {
     return jsonOut_({ ok: false, error: String(err) });
@@ -676,19 +690,28 @@ function handleLogin_(body) {
   const user = trouverUtilisateur_(email);
   const motDePasse = String(body.motDePasse || '');
 
-  // Réponse strictement identique — même texte, même temps de calcul — que le
-  // compte soit inconnu, sans mot de passe encore défini, ou avec un mauvais
-  // mot de passe : rien ici ne doit permettre de savoir quelles adresses
-  // figurent dans la feuille Utilisateurs. L'invitation à la première
-  // connexion est donc portée par le message générique.
   const echec = {
     ok: false,
     code: 'IDENTIFIANTS_INVALIDES',
-    error: 'Email ou mot de passe incorrect. S\'il s\'agit de votre première connexion, '
-      + 'utilisez « Première connexion ou mot de passe oublié » pour recevoir un lien par e-mail.'
+    error: 'Email ou mot de passe incorrect.'
   };
 
-  if (!user || !user.hash) {
+  // Un compte connu mais sans mot de passe est signalé explicitement, pour
+  // guider la première connexion. Choix assumé : cela permet de découvrir
+  // quelles adresses n'ont pas encore de compte actif. La fuite s'arrête là —
+  // un compte inconnu et un mauvais mot de passe restent indiscernables, texte
+  // et temps de calcul compris (d'où le hachage factice ci-dessous), de sorte
+  // que la liste des comptes réellement actifs n'est pas énumérable.
+  if (user && !user.hash) {
+    return {
+      ok: false,
+      code: 'MOT_DE_PASSE_NON_DEFINI',
+      error: 'Aucun mot de passe n\'est encore défini pour ce compte. '
+        + 'Utilisez « Première connexion ou mot de passe oublié » pour recevoir un lien par e-mail.'
+    };
+  }
+
+  if (!user) {
     verifierMotDePasse_(motDePasse, hashFactice_());
     noterEchec_(email);
     return echec;
@@ -828,7 +851,7 @@ function handleCreate_(body, user) {
   const note = body.note || ('Point créé : ' + body.sujet);
   appendHistorique_(newId, {
     note: note,
-    resume: body.resume || note.slice(0, 20),
+    resume: body.resume || note.slice(0, 30),
     responsable: body.responsable || '',
     dateEcheance: body.dateEcheance || '',
     priorite: body.priorite || '',
@@ -893,7 +916,7 @@ function handleAjoutSuivi_(body, user) {
 
   appendHistorique_(pid, {
     note: body.note,
-    resume: body.resume || String(body.note).slice(0, 20),
+    resume: body.resume || String(body.note).slice(0, 30),
     responsable: body.responsable || '',
     dateEcheance: body.dateEcheance || '',
     priorite: body.priorite || '',
@@ -1020,7 +1043,7 @@ function appendHistorique_(pointId, fields) {
     pointId,
     nowIso_(),
     fields.note || '',
-    (fields.resume || '').slice(0, 20),
+    (fields.resume || '').slice(0, 30),
     fields.responsable || '',
     fields.dateEcheance || '',
     fields.priorite || '',

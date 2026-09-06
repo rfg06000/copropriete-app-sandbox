@@ -84,10 +84,10 @@ Chaque **point** (un sujet : fuite, devis, mise aux normes, contentieux...) est 
 ### Fonctionnalités
 
 - **Ouvrir un point** : sujet, description initiale, date d'ouverture, statut (En cours/Clos), responsable, échéance, priorité, document.
-- **Ajouter un suivi** à un point existant : une note détaillée + un résumé court (20 caractères, tapé à la main — volontairement, ça force à identifier l'essentiel plutôt que de le générer automatiquement) + éventuellement un nouveau responsable, une nouvelle échéance, un nouveau statut, et un document (compte-rendu, devis, commande, courriel...).
+- **Ajouter un suivi** à un point existant : une note détaillée + un « À faire » court (30 caractères, tapé à la main — volontairement, ça force à identifier l'essentiel plutôt que de le générer automatiquement) + éventuellement un nouveau responsable, une nouvelle échéance, un nouveau statut, et un document (compte-rendu, devis, commande, courriel...).
 - **Historique complet** : chaque ajout de suivi reste consultable dans l'ordre chronologique, avec sa date, sa note, et ce qui a changé à ce moment-là (statut, responsable, échéance...).
 - **Fiche du point** : en cliquant sur un point dans la liste, on ouvre sa fiche avec son état actuel et tout son historique, sans avoir à chercher ailleurs.
-- **Liste filtrable** : filtre par statut (En cours/Clos), par responsable, ou recherche par mot-clé dans le sujet. Triée par échéance par défaut (les plus proches/dépassées en premier), avec surlignage rouge et gras pour les échéances dépassées non closes.
+- **Liste filtrable** : filtre par statut (En cours/Clos) au-dessus de la liste — le statut n'occupe plus de colonne dans le tableau —, par responsable, ou recherche par mot-clé dans le sujet. Triée par échéance par défaut (les plus proches/dépassées en premier), avec surlignage rouge et gras pour les échéances dépassées non closes.
 - **Pièces jointes** : pas d'upload de fichier — on colle un lien (Google Drive, OneDrive...) vers le document concerné, rattaché à l'entrée de suivi correspondante.
 - **Renommer un sujet** : possible directement depuis la fiche du point (icône ✎), tracé dans l'historique.
 
