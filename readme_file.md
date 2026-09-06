@@ -51,12 +51,22 @@ existe ou non, afin de ne pas permettre d'énumérer les comptes.
 ### Configuration initiale (Administrateur)
 1. Connectez-vous via le bouton "Se connecter" en haut de page
 2. Accédez à l'onglet "Administration" (visible uniquement pour les administrateurs)
-3. Importez votre fichier CSV avec les colonnes :
-   - N° cop, Copropriétaire, Type, Description, N° lot
-   - Escalier, Etage, Façade, Porte cave, N° plan
-   - Clé 1 : charges générales, Clé 3 : ascenceurs, Description complète
+3. Importez les données de lots, réparties en deux fichiers CSV distincts.
+   Chacun dispose d'un bouton « Télécharger le modèle » qui produit un fichier
+   aux bonnes colonnes, à remplir puis à réimporter.
 
-   L'import **remplace intégralement** la feuille `Lots` de la Google Sheet (confirmation demandée).
+   **Copropriétaires** — l'import courant, à chaque mutation :
+   - N° de lot, N° Copropriétaire, Nom Copropriétaire
+
+   **État de division** — la structure du bâtiment, à ne toucher qu'en cas de
+   modification réelle de l'immeuble :
+   - N° de lot, Type, Description, Cage, Étage, Façade
+   - N° plan, Porte cave
+   - Quote-part charges générales, Quote-part charges ascenseur, Description complète
+
+   Chaque import **remplace intégralement** la feuille correspondante. Celui de
+   l'état de division exige en plus la saisie de `CONFIRMER`, contrôlée aussi
+   côté serveur.
 4. Gérez les comptes dans la section "Comptes utilisateurs" : créer un compte envoie
    automatiquement l'invitation par e-mail.
 
@@ -98,7 +108,16 @@ Chaque **point** (un sujet : fuite, devis, mise aux normes, contentieux...) est 
   - `Historique` : une ligne par ajout de suivi, jamais modifiée ni supprimée (journal complet), avec l'auteur horodaté par le serveur.
   - `Utilisateurs` : Email, Prenom, Nom, MotDePasseHash, EstAdmin.
   - `Sessions` : jetons de session et de réinitialisation, stockés hachés, avec leur expiration.
-  - `Lots` : les données de lots de la copropriété (ex-`data.csv`).
+  - `EtatDivision` : la structure du bâtiment (lots, description, tantièmes), quasi jamais modifiée.
+  - `Coproprietaires` : qui possède quel lot, mis à jour à chaque mutation.
+
+  Les deux sont jointes sur le numéro de lot pour produire la liste affichée.
+  La jointure part d'`EtatDivision` : tout lot structurel apparaît, avec un
+  copropriétaire vide si aucune ligne ne lui correspond ; une ligne de
+  `Coproprietaires` visant un lot inconnu est signalée à l'import plutôt que
+  perdue en silence. La date du dernier import de `Coproprietaires` est
+  affichée sur la liste des lots, accessible sans connexion — une correction
+  faite directement dans la Google Sheet ne la met pas à jour.
 - **Backend** : un Google Apps Script déployé en Application Web (`apps-script/Code.gs` dans ce dépôt), exposant une API JSON. Lecture publique via `GET ?action=list` et `GET ?action=lots` ; écriture via `POST`, chaque action portant un jeton de session que le serveur revalide.
 - **Accès** : comptes nominatifs, tous les droits vérifiés côté Apps Script (voir la section « Comptes et droits »).
 - **Environnements séparés** : la prod (`copropriete-app`) et le sandbox (`copropriete-app-sandbox`) ont chacun leur propre Google Sheet et leur propre déploiement Apps Script — aucune donnée de test ne peut se mélanger avec les données réelles.
@@ -116,7 +135,11 @@ Le code Apps Script vit dans `apps-script/Code.gs`. Pour l'installer ou le mettr
    statut « Ouvert » en « En cours ». Elle est rejouable sans risque.
 4. Déployer : *Déployer > Gérer les déploiements > (crayon) > Nouvelle version*. L'URL `/exec`
    existante est conservée, il n'y a rien à changer dans `index.html`.
-5. Dans l'application, onglet Administration, importer `data.csv` une fois pour peupler la feuille `Lots`.
+5. Rien à importer : `setup()` scinde automatiquement l'ancienne feuille `Lots`
+   en `EtatDivision` et `Coproprietaires`. La feuille `Lots` est **conservée
+   intacte** comme sauvegarde et n'est plus lue ; supprimez-la vous-même une
+   fois la migration vérifiée. La date de fraîcheur des copropriétaires reste
+   volontairement vide jusqu'au premier import réel.
 
 `data.csv` reste dans le dépôt à titre de référence et de jeu de données initial, mais
 l'application ne le lit plus : les lots viennent désormais de la Google Sheet.

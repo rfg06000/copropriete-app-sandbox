@@ -36,7 +36,14 @@ const POINTS_SHEET_NAME = 'Points';
 const HISTO_SHEET_NAME = 'Historique';
 const USERS_SHEET_NAME = 'Utilisateurs';
 const SESSIONS_SHEET_NAME = 'Sessions';
-const LOTS_SHEET_NAME = 'Lots';
+const ETAT_SHEET_NAME = 'EtatDivision';
+const COPRO_SHEET_NAME = 'Coproprietaires';
+const LOTS_SHEET_NAME = 'Lots';          // ancienne feuille fusionnée, migrée puis conservée
+
+// Horodatage du dernier import de Coproprietaires, affiché publiquement sur la
+// liste des lots. Une correction faite à la main dans la Google Sheet ne le met
+// pas à jour : seul un import par l'application le renseigne.
+const PROP_MAJ_COPRO = 'MAJ_COPROPRIETAIRES';
 
 const POINTS_HEADERS = [
   'ID', 'DateOuverture', 'Sujet', 'Description', 'Statut',
@@ -53,18 +60,80 @@ const USERS_HEADERS = ['Email', 'Prenom', 'Nom', 'MotDePasseHash', 'EstAdmin'];
 
 const SESSIONS_HEADERS = ['TokenHash', 'Email', 'Type', 'Expire', 'CreeLe', 'UtiliseLe'];
 
+/*
+ * Les lots vivent dans deux feuilles distinctes, aux rythmes de mise à jour
+ * très différents :
+ *   - EtatDivision   : la structure du bâtiment, quasi jamais modifiée.
+ *   - Coproprietaires: qui possède quoi, change à chaque mutation.
+ * La jointure se fait sur le numéro de lot.
+ *
+ * L'ancienne feuille "Lots" fusionnait les deux ; elle n'est plus lue, mais
+ * reste en place comme sauvegarde après la migration (voir migrerLots_).
+ */
+const ETAT_HEADERS = [
+  'N° de lot', 'Type', 'Description', 'Cage', 'Étage', 'Façade',
+  'N° plan', 'Porte cave',
+  'Quote-part charges générales', 'Quote-part charges ascenseur',
+  'Description complète'
+];
+
+const COPRO_HEADERS = ['N° de lot', 'N° Copropriétaire', 'Nom Copropriétaire'];
+
+// Lignes d'exemple des modèles CSV téléchargeables, dans l'ordre des en-têtes
+// ci-dessus. Elles vivent ici pour ne pas pouvoir diverger des colonnes que
+// l'import valide.
+const ETAT_EXEMPLE = [
+  '15', 'Appartement', 'T3', 'A', '2', 'Sud',
+  '101', '',
+  '125', '90',
+  'Un appartement de trois pièces au deuxième étage'
+];
+
+const COPRO_EXEMPLE = ['15', '1', 'DUPONT Jean (Monsieur)'];
+
+const MODELES = {
+  etatDivision: {
+    entetes: ETAT_HEADERS,
+    exemple: ETAT_EXEMPLE,
+    nomFichier: 'modele-etat-division.csv'
+  },
+  coproprietaires: {
+    entetes: COPRO_HEADERS,
+    exemple: COPRO_EXEMPLE,
+    nomFichier: 'modele-coproprietaires.csv'
+  }
+};
+
+/*
+ * Correspondance entre les colonnes des deux feuilles et les noms utilisés par
+ * la vue combinée que consomme l'application. Ces noms historiques sont
+ * conservés à dessein : l'interface affiche toujours « Escalier », « Clé 1 »
+ * et « Clé 3 », et le renommage ne concerne que les feuilles sources.
+ */
+const VUE_DEPUIS_ETAT = {
+  'N° de lot': 'N° lot',
+  'Type': 'Type',
+  'Description': 'Description',
+  'Cage': 'Escalier',
+  'Étage': 'Etage',
+  'Façade': 'Façade',
+  'N° plan': 'N° plan',
+  'Porte cave': 'Porte cave',
+  'Quote-part charges générales': 'Clé 1 : charges générales',
+  'Quote-part charges ascenseur': 'Clé 3 : ascenceurs',
+  'Description complète': 'Description complète'
+};
+
+const VUE_DEPUIS_COPRO = {
+  'N° Copropriétaire': 'N° cop',
+  'Nom Copropriétaire': 'Copropriétaire'
+};
+
+// Colonnes de l'ancienne feuille Lots, utilisées uniquement par la migration.
 const LOTS_HEADERS = [
   'N° cop', 'Copropriétaire', 'Type', 'Description', 'N° lot',
   'Escalier', 'Etage', 'Façade', 'Porte cave', 'N° plan',
   'Clé 1 : charges générales', 'Clé 3 : ascenceurs', 'Description complète'
-];
-
-// Ligne d'exemple du modèle CSV téléchargeable, dans l'ordre de LOTS_HEADERS.
-// Elle vit ici pour ne pas pouvoir diverger des colonnes que l'import valide.
-const LOTS_EXEMPLE = [
-  '1', 'DUPONT Jean (Monsieur)', 'Appartement', 'T3', '15',
-  'A', '2', 'Sud', '', '101',
-  '125', '90', 'Un appartement de trois pièces au deuxième étage'
 ];
 
 const CACHE_FIELDS = ['Responsable', 'DateEcheance', 'Priorite', 'Statut'];
@@ -119,12 +188,18 @@ function setup() {
   ensurePepper_();
   const comptes = seedComptesInitiaux_();
   const migres = migrerStatutsOuvertEnCours_();
+  const lotsMigres = migrerLots_();
 
   const messages = [
     'Feuilles vérifiées : ' + [POINTS_SHEET_NAME, HISTO_SHEET_NAME, USERS_SHEET_NAME,
-      SESSIONS_SHEET_NAME, LOTS_SHEET_NAME].join(', '),
+      SESSIONS_SHEET_NAME, ETAT_SHEET_NAME, COPRO_SHEET_NAME].join(', '),
     'Comptes créés : ' + (comptes.length ? comptes.join(', ') : 'aucun (déjà présents)'),
     'Statuts "Ouvert" migrés en "' + STATUT_EN_COURS + '" : ' + migres + ' cellule(s)',
+    lotsMigres
+      ? 'Lots scindés en ' + ETAT_SHEET_NAME + ' et ' + COPRO_SHEET_NAME + ' : '
+        + lotsMigres + ' lot(s). L\'ancienne feuille "' + LOTS_SHEET_NAME
+        + '" est conservée intacte comme sauvegarde, vous pouvez la supprimer une fois vérifiée.'
+      : 'Scission des lots : rien à faire (déjà migrée, ou feuille "' + LOTS_SHEET_NAME + '" absente ou vide)',
     'URL de l\'application utilisée pour les liens e-mail : ' + getAppUrl_()
   ];
   messages.forEach(function (m) { Logger.log(m); });
@@ -183,8 +258,69 @@ function ensureAuthSheets_() {
   return {
     users: creer(USERS_SHEET_NAME, USERS_HEADERS),
     sessions: creer(SESSIONS_SHEET_NAME, SESSIONS_HEADERS),
-    lots: creer(LOTS_SHEET_NAME, LOTS_HEADERS)
+    etat: creer(ETAT_SHEET_NAME, ETAT_HEADERS),
+    copro: creer(COPRO_SHEET_NAME, COPRO_HEADERS)
   };
+}
+
+/**
+ * Scinde l'ancienne feuille "Lots" en EtatDivision et Coproprietaires.
+ * Ne fait rien si les deux nouvelles feuilles contiennent déjà des données, ou
+ * si l'ancienne est absente ou vide : setup() reste donc rejouable.
+ * La feuille "Lots" n'est pas supprimée — elle sert de sauvegarde, et c'est à
+ * l'administrateur de la retirer une fois la migration vérifiée.
+ */
+function migrerLots_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const source = ss.getSheetByName(LOTS_SHEET_NAME);
+  if (!source || source.getLastRow() < 2) return 0;
+
+  const feuilles = ensureAuthSheets_();
+  if (feuilles.etat.getLastRow() > 1 || feuilles.copro.getLastRow() > 1) return 0;
+
+  const valeurs = source.getDataRange().getValues();
+  const entetes = valeurs[0].map(function (h) { return String(h).trim(); });
+  const indexDe = function (nom) { return entetes.indexOf(nom); };
+
+  // L'ancienne feuille Lots portait déjà les noms de la vue combinée : chaque
+  // colonne cible se retrouve donc via VUE_DEPUIS_ETAT / VUE_DEPUIS_COPRO.
+  const lignesEtat = [];
+  const lignesCopro = [];
+
+  for (let i = 1; i < valeurs.length; i++) {
+    const r = valeurs[i];
+    if (!r.some(function (c) { return c !== '' && c !== null; })) continue;
+
+    lignesEtat.push(ETAT_HEADERS.map(function (h) {
+      const j = indexDe(VUE_DEPUIS_ETAT[h]);
+      return j === -1 ? '' : assainirCellule_(r[j]);
+    }));
+
+    lignesCopro.push(COPRO_HEADERS.map(function (h) {
+      if (h === 'N° de lot') {
+        const j = indexDe(VUE_DEPUIS_ETAT['N° de lot']);
+        return j === -1 ? '' : assainirCellule_(r[j]);
+      }
+      const j = indexDe(VUE_DEPUIS_COPRO[h]);
+      return j === -1 ? '' : assainirCellule_(r[j]);
+    }));
+  }
+
+  if (!lignesEtat.length) return 0;
+
+  ecrireFeuille_(feuilles.etat, ETAT_HEADERS, lignesEtat);
+  ecrireFeuille_(feuilles.copro, COPRO_HEADERS, lignesCopro);
+
+  // La date de fraîcheur n'est délibérément pas renseignée : aucun import réel
+  // n'a eu lieu, l'afficher serait trompeur.
+  return lignesEtat.length;
+}
+
+/** Remplace intégralement le contenu d'une feuille par des en-têtes + lignes. */
+function ecrireFeuille_(sheet, entetes, lignes) {
+  const rows = [entetes].concat(lignes);
+  sheet.clearContents();
+  sheet.getRange(1, 1, rows.length, entetes.length).setValues(rows);
 }
 
 function seedComptesInitiaux_() {
@@ -569,13 +705,24 @@ function doGet(e) {
     }
 
     if (action === 'lots') {
-      return jsonOut_({ ok: true, lots: readAllLots_() });
+      return jsonOut_({
+        ok: true,
+        lots: readAllLots_(),
+        majCoproprietaires: getMajCoproprietaires_()
+      });
     }
 
     // Colonnes attendues par l'import, pour que le front puisse produire un
     // modèle CSV qui ne risque pas de diverger de ce que le serveur valide.
-    if (action === 'modeleLots') {
-      return jsonOut_({ ok: true, entetes: LOTS_HEADERS, exemple: LOTS_EXEMPLE });
+    if (action === 'modele') {
+      const modele = MODELES[e.parameter.feuille];
+      if (!modele) return jsonOut_({ ok: false, error: 'Modèle inconnu : ' + e.parameter.feuille });
+      return jsonOut_({
+        ok: true,
+        entetes: modele.entetes,
+        exemple: modele.exemple,
+        nomFichier: modele.nomFichier
+      });
     }
 
     return jsonOut_({ ok: false, error: 'Unknown action: ' + action });
@@ -610,8 +757,8 @@ function readAllHistorique_() {
     });
 }
 
-function readAllLots_() {
-  const sheet = ensureAuthSheets_().lots;
+/** Lit une feuille en objets {en-tête: valeur}, lignes vides ignorées. */
+function lireFeuille_(sheet) {
   const values = sheet.getDataRange().getValues();
   if (values.length < 2) return [];
   const entetes = values[0].map(function (h) { return String(h).trim(); });
@@ -626,6 +773,63 @@ function readAllLots_() {
       });
       return obj;
     });
+}
+
+function cleLot_(valeur) {
+  return String(valeur === undefined || valeur === null ? '' : valeur).trim();
+}
+
+/**
+ * Vue combinée des deux feuilles, dans la forme historique attendue par
+ * l'application (cf. VUE_DEPUIS_ETAT / VUE_DEPUIS_COPRO).
+ *
+ * La jointure part d'EtatDivision : tout lot structurel est affiché, avec un
+ * copropriétaire vide si aucune ligne ne lui correspond. Une ligne de
+ * Coproprietaires visant un lot inconnu n'apparaît pas — elle est signalée à
+ * l'import plutôt que d'être perdue en silence.
+ */
+function readAllLots_() {
+  const feuilles = ensureAuthSheets_();
+
+  const proprietaires = {};
+  lireFeuille_(feuilles.copro).forEach(function (ligne) {
+    const cle = cleLot_(ligne['N° de lot']);
+    if (cle) proprietaires[cle] = ligne;
+  });
+
+  return lireFeuille_(feuilles.etat).map(function (ligne) {
+    const obj = {};
+    Object.keys(VUE_DEPUIS_ETAT).forEach(function (source) {
+      obj[VUE_DEPUIS_ETAT[source]] = ligne[source] === undefined ? '' : ligne[source];
+    });
+
+    const copro = proprietaires[cleLot_(ligne['N° de lot'])];
+    Object.keys(VUE_DEPUIS_COPRO).forEach(function (source) {
+      obj[VUE_DEPUIS_COPRO[source]] = copro && copro[source] !== undefined ? copro[source] : '';
+    });
+
+    return obj;
+  });
+}
+
+/** Numéros de lot de Coproprietaires absents d'EtatDivision. */
+function lotsOrphelins_() {
+  const feuilles = ensureAuthSheets_();
+  const connus = {};
+  lireFeuille_(feuilles.etat).forEach(function (l) {
+    connus[cleLot_(l['N° de lot'])] = true;
+  });
+
+  const orphelins = [];
+  lireFeuille_(feuilles.copro).forEach(function (l) {
+    const cle = cleLot_(l['N° de lot']);
+    if (cle && !connus[cle] && orphelins.indexOf(cle) === -1) orphelins.push(cle);
+  });
+  return orphelins;
+}
+
+function getMajCoproprietaires_() {
+  return PropertiesService.getScriptProperties().getProperty(PROP_MAJ_COPRO) || '';
 }
 
 /* ================================ doPost ================================ */
@@ -667,7 +871,8 @@ function doPost(e) {
     if (action === 'deletePoint') return jsonOut_(handleDeletePoint_(body, requireAdmin_(body)));
 
     // --- Administration ---
-    if (action === 'importLots') return jsonOut_(handleImportLots_(body, requireAdmin_(body)));
+    if (action === 'importEtatDivision') return jsonOut_(handleImportEtatDivision_(body, requireAdmin_(body)));
+    if (action === 'importCoproprietaires') return jsonOut_(handleImportCoproprietaires_(body, requireAdmin_(body)));
     if (action === 'listUsers') return jsonOut_(handleListUsers_(body, requireAdmin_(body)));
     if (action === 'addUser') return jsonOut_(handleAddUser_(body, requireAdmin_(body)));
     if (action === 'removeUser') return jsonOut_(handleRemoveUser_(body, requireAdmin_(body)));
@@ -1092,33 +1297,68 @@ function recomputePointCache_(pointId) {
 
 /* ======================= Administration : Lots ======================= */
 
-/**
- * importLots — administrateurs seuls. Remplace intégralement le contenu de la
- * feuille Lots par les lignes reçues, après validation des colonnes attendues.
- */
-function handleImportLots_(body, user) {
-  const lots = body.lots;
-  if (!Array.isArray(lots) || lots.length === 0) {
-    return { ok: false, error: 'Aucune ligne à importer.' };
+/** Contrôles communs aux deux imports : lignes présentes et colonnes attendues. */
+function validerLignesImport_(lignes, entetes) {
+  if (!Array.isArray(lignes) || lignes.length === 0) {
+    return 'Aucune ligne à importer.';
   }
-
-  const premiere = lots[0];
-  const manquantes = LOTS_HEADERS.filter(function (h) {
-    return !Object.prototype.hasOwnProperty.call(premiere, h);
+  const manquantes = entetes.filter(function (h) {
+    return !Object.prototype.hasOwnProperty.call(lignes[0], h);
   });
   if (manquantes.length) {
-    return { ok: false, error: 'Colonnes manquantes dans le fichier : ' + manquantes.join(', ') };
+    return 'Colonnes manquantes dans le fichier : ' + manquantes.join(', ');
+  }
+  return null;
+}
+
+function enLignesFeuille_(lignes, entetes) {
+  return lignes.map(function (l) {
+    return entetes.map(function (h) { return assainirCellule_(l[h]); });
+  });
+}
+
+/**
+ * importEtatDivision — administrateurs seuls. Remplace la structure complète du
+ * bâtiment, opération rare et lourde de conséquences : le client fait saisir
+ * « CONFIRMER », et le serveur exige la même confirmation explicite plutôt que
+ * de s'en remettre à l'interface.
+ */
+function handleImportEtatDivision_(body, user) {
+  if (String(body.confirmation || '').trim().toUpperCase() !== 'CONFIRMER') {
+    return { ok: false, error: 'Confirmation explicite requise pour remplacer l\'état de division.' };
   }
 
-  const sheet = ensureAuthSheets_().lots;
-  const rows = [LOTS_HEADERS].concat(lots.map(function (lot) {
-    return LOTS_HEADERS.map(function (h) { return assainirCellule_(lot[h]); });
-  }));
+  const erreur = validerLignesImport_(body.lignes, ETAT_HEADERS);
+  if (erreur) return { ok: false, error: erreur };
 
-  sheet.clearContents();
-  sheet.getRange(1, 1, rows.length, LOTS_HEADERS.length).setValues(rows);
+  ecrireFeuille_(ensureAuthSheets_().etat, ETAT_HEADERS,
+    enLignesFeuille_(body.lignes, ETAT_HEADERS));
 
-  return { ok: true, nombre: lots.length };
+  // Des lots peuvent avoir disparu : les copropriétaires qui s'y rattachaient
+  // deviennent orphelins et cesseraient d'être affichés sans prévenir.
+  return { ok: true, nombre: body.lignes.length, orphelins: lotsOrphelins_() };
+}
+
+/**
+ * importCoproprietaires — administrateurs seuls. Opération courante (mutations),
+ * sans confirmation renforcée. Horodate la mise à jour, affichée publiquement.
+ */
+function handleImportCoproprietaires_(body, user) {
+  const erreur = validerLignesImport_(body.lignes, COPRO_HEADERS);
+  if (erreur) return { ok: false, error: erreur };
+
+  ecrireFeuille_(ensureAuthSheets_().copro, COPRO_HEADERS,
+    enLignesFeuille_(body.lignes, COPRO_HEADERS));
+
+  const maintenant = nowIso_();
+  PropertiesService.getScriptProperties().setProperty(PROP_MAJ_COPRO, maintenant);
+
+  return {
+    ok: true,
+    nombre: body.lignes.length,
+    majCoproprietaires: maintenant,
+    orphelins: lotsOrphelins_()
+  };
 }
 
 /** Neutralise les valeurs interprétées comme formule par Sheets. */

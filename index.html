@@ -624,31 +624,62 @@
             </div>
 
             <div id="admin-content" style="display: none;">
-                <div class="upload-section">
-                    <h3>Données des lots</h3>
-                    <p class="info-note" style="margin-bottom:15px;">
-                        Les lots sont stockés dans la feuille <strong>Lots</strong> de la Google Sheet.
-                        Importer un fichier remplace l'intégralité de cette feuille.
+                <div class="upload-section" style="text-align:left;">
+                    <h3 style="text-align:center;">Données des lots</h3>
+                    <p class="info-note" style="margin-bottom:20px;">
+                        Les lots sont répartis dans deux feuilles de la Google Sheet :
+                        <strong>EtatDivision</strong>, la structure du bâtiment, qui ne change qu'en cas
+                        de modification réelle de l'immeuble, et <strong>Coproprietaires</strong>, mise à
+                        jour à chaque mutation. La liste des lots présente la jointure des deux
+                        sur le numéro de lot.
                     </p>
 
-                    <div style="margin-bottom: 20px;">
-                        <button class="calc-btn" onclick="loadLotsDepuisSheets(false)" style="margin-bottom: 10px;">Recharger depuis Google Sheets</button>
+                    <div style="margin-bottom: 25px;">
+                        <button class="calc-btn" onclick="loadLotsDepuisSheets(false)">Recharger depuis Google Sheets</button>
                         <p class="info-note">Recharge les lots actuellement enregistrés, sans rien modifier.</p>
                     </div>
 
-                    <div style="border-top: 2px solid #e1e5e9; padding-top: 20px;">
-                        <h4>Importer un nouveau fichier CSV</h4>
-                        <button class="calc-btn" id="modele-btn" onclick="telechargerModeleLots(this)" style="margin-bottom:12px;">Télécharger le modèle</button>
-                        <p class="info-note" style="margin-bottom:15px;">
-                            Fichier CSV aux colonnes attendues, avec une ligne d'exemple à remplacer
-                            par vos données avant de le réimporter ci-dessous.
+                    <!-- Import courant : les mutations -->
+                    <div style="border-top: 2px solid #e1e5e9; padding-top: 20px; margin-bottom: 25px;">
+                        <h4>Copropriétaires</h4>
+                        <p class="info-note" style="margin-bottom:12px;">
+                            Colonnes attendues : N° de lot, N° Copropriétaire, Nom Copropriétaire.
+                            L'import remplace l'intégralité de la feuille et horodate la mise à jour,
+                            affichée sur la liste des lots.
                         </p>
-                        <input type="file" id="csvFile" accept=".csv" onchange="loadCSV(event)">
-                        <p>Le fichier doit contenir les colonnes : N° cop, Copropriétaire, Type, Description, N° lot, Escalier, Etage, Façade, Porte cave, N° plan, Clé 1 : charges générales, Clé 3 : ascenceurs, Description complète</p>
-                        <div id="import-confirm" style="display:none;margin-top:15px;padding:15px;background:#fff3cd;border-radius:8px;color:#856404;">
-                            <p id="import-confirm-text" style="margin-bottom:10px;"></p>
-                            <button class="calc-btn" onclick="confirmerImportLots(this)">Remplacer la feuille Lots</button>
-                            <button class="link-btn" style="margin-left:15px;" onclick="annulerImportLots()">Annuler</button>
+                        <button class="calc-btn" id="modele-copro-btn" onclick="telechargerModele('coproprietaires', this)" style="margin-bottom:12px;">Télécharger le modèle</button>
+                        <input type="file" id="csvCopro" accept=".csv" onchange="preparerImport(event, 'coproprietaires')">
+                        <div id="import-confirm-coproprietaires" style="display:none;margin-top:15px;padding:15px;background:#fff3cd;border-radius:8px;color:#856404;">
+                            <p id="import-confirm-text-coproprietaires" style="margin-bottom:10px;"></p>
+                            <button class="calc-btn" onclick="confirmerImport('coproprietaires', this)">Remplacer les copropriétaires</button>
+                            <button class="link-btn" style="margin-left:15px;" onclick="annulerImport('coproprietaires')">Annuler</button>
+                        </div>
+                    </div>
+
+                    <!-- Import rare : la structure du bâtiment, sous confirmation renforcée -->
+                    <div style="border-top: 2px solid #e1e5e9; padding-top: 20px;">
+                        <h4>État de division</h4>
+                        <p class="info-note" style="margin-bottom:12px;">
+                            Colonnes attendues : N° de lot, Type, Description, Cage, Étage, Façade,
+                            N° plan, Porte cave, Quote-part charges générales,
+                            Quote-part charges ascenseur, Description complète.
+                        </p>
+                        <button class="calc-btn" id="modele-etat-btn" onclick="telechargerModele('etatDivision', this)" style="margin-bottom:12px;">Télécharger le modèle</button>
+                        <input type="file" id="csvEtat" accept=".csv" onchange="preparerImport(event, 'etatDivision')">
+                        <div id="import-confirm-etatDivision" style="display:none;margin-top:15px;padding:15px;background:#f8d7da;border:2px solid #c0392b;border-radius:8px;color:#721c24;">
+                            <p style="font-weight:600;margin-bottom:10px;">⚠ Remplacement de la structure de l'immeuble</p>
+                            <p style="margin-bottom:10px;">
+                                Ceci va remplacer la structure complète de l'immeuble : lots, descriptions
+                                et tantièmes. Cette opération est rare et ne doit être faite qu'en cas de
+                                modification réelle du bâtiment.
+                            </p>
+                            <p id="import-confirm-text-etatDivision" style="margin-bottom:10px;"></p>
+                            <label style="display:block;font-weight:600;margin-bottom:6px;">Saisissez CONFIRMER pour poursuivre</label>
+                            <input type="text" id="etat-confirmation" placeholder="CONFIRMER" style="padding:8px 12px;border:2px solid #c0392b;border-radius:5px;font-family:'Aptos',sans-serif;margin-bottom:10px;">
+                            <div>
+                                <button class="calc-btn" onclick="confirmerImport('etatDivision', this)">Remplacer l'état de division</button>
+                                <button class="link-btn" style="margin-left:15px;" onclick="annulerImport('etatDivision')">Annuler</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -713,6 +744,7 @@
             </div>
 
             <div id="lots-content" style="display: none;">
+                <div id="maj-coproprietaires" class="info-note" style="display:none;margin-bottom:15px;"></div>
                 <div id="filters-section" class="filters">
                     <div class="filter-group">
                         <label>Filtrer par nom de copropriétaire :</label>
@@ -1446,6 +1478,7 @@
 
                     csvData = normalizeKeys(lots);
                     localStorage.setItem('csvData', JSON.stringify(csvData));
+                    afficherMajCoproprietaires(result.majCoproprietaires);
 
                     if (csvData.length > 0) {
                         initializeDataDisplay();
@@ -1465,6 +1498,22 @@
                     }
                     console.log('Erreur chargement des lots:', error);
                 });
+        }
+
+        /**
+         * Date de dernier import des copropriétaires, visible sans connexion.
+         * Reste masquée tant qu'aucun import n'a eu lieu : la migration initiale
+         * ne renseigne délibérément aucune date, afficher une fraîcheur qui ne
+         * correspond à rien serait trompeur.
+         */
+        function afficherMajCoproprietaires(dateIso) {
+            const bloc = document.getElementById('maj-coproprietaires');
+            if (!dateIso) {
+                bloc.style.display = 'none';
+                return;
+            }
+            bloc.textContent = 'Copropriétaires mis à jour le ' + formatDateFR(dateIso);
+            bloc.style.display = 'block';
         }
 
         function showPage(page, button) {
@@ -1503,9 +1552,29 @@
 
         /* ============ Administration : import des lots ============ */
 
-        let lotsAImporter = null;
+        /*
+         * Deux imports distincts, une seule mécanique : on lit le CSV, on affiche
+         * ce qui va être remplacé, puis on envoie. L'état de division exige en
+         * plus la saisie de CONFIRMER, exigée aussi côté serveur.
+         */
+        const IMPORTS = {
+            coproprietaires: {
+                action: 'importCoproprietaires',
+                libelle: 'copropriétaire(s)',
+                feuille: 'Coproprietaires',
+                champFichier: 'csvCopro'
+            },
+            etatDivision: {
+                action: 'importEtatDivision',
+                libelle: 'lot(s)',
+                feuille: 'EtatDivision',
+                champFichier: 'csvEtat'
+            }
+        };
 
-        function loadCSV(event) {
+        const lignesAImporter = {};
+
+        function preparerImport(event, type) {
             const file = event.target.files[0];
             if (!file) return;
 
@@ -1514,32 +1583,90 @@
                 skipEmptyLines: true,
                 encoding: 'UTF-8',
                 delimiter: ';',
-                complete: function(results) {
+                complete: function (results) {
                     if (results.errors.length > 0) {
                         showError('Erreur lors de la lecture du fichier CSV');
                         return;
                     }
 
-                    lotsAImporter = normalizeKeys(results.data);
+                    lignesAImporter[type] = normalizeKeys(results.data);
+                    const conf = IMPORTS[type];
 
-                    document.getElementById('import-confirm-text').textContent =
-                        `${lotsAImporter.length} lot(s) lus dans le fichier. Ils remplaceront `
-                        + `intégralement les ${csvData.length} lot(s) actuellement enregistrés `
-                        + `dans la feuille Lots. Cette opération est irréversible.`;
-                    document.getElementById('import-confirm').style.display = 'block';
+                    document.getElementById('import-confirm-text-' + type).textContent =
+                        `${lignesAImporter[type].length} ligne(s) lues dans le fichier. Elles remplaceront `
+                        + `intégralement le contenu de la feuille ${conf.feuille}. `
+                        + `Cette opération est irréversible.`;
+                    document.getElementById('import-confirm-' + type).style.display = 'block';
                 }
             });
         }
 
+        function annulerImport(type) {
+            lignesAImporter[type] = null;
+            document.getElementById('import-confirm-' + type).style.display = 'none';
+            document.getElementById(IMPORTS[type].champFichier).value = '';
+            const confirmation = document.getElementById('etat-confirmation');
+            if (type === 'etatDivision' && confirmation) confirmation.value = '';
+        }
+
+        function confirmerImport(type, button) {
+            const lignes = lignesAImporter[type];
+            if (!lignes || !lignes.length) {
+                showError('Aucun fichier à importer');
+                return;
+            }
+
+            const payload = { lignes: lignes };
+            if (type === 'etatDivision') {
+                payload.confirmation = document.getElementById('etat-confirmation').value.trim();
+                if (payload.confirmation.toUpperCase() !== 'CONFIRMER') {
+                    showError('Saisissez CONFIRMER pour valider le remplacement de l\'état de division');
+                    return;
+                }
+            }
+
+            setButtonLoading(button, true, 'Import en cours...');
+            apiPost(IMPORTS[type].action, payload)
+                .then(result => {
+                    if (!result.ok) {
+                        showError('Erreur lors de l\'import : ' + result.error);
+                        return;
+                    }
+                    annulerImport(type);
+                    showSuccess(result.nombre + ' ligne(s) enregistrée(s) dans ' + IMPORTS[type].feuille);
+
+                    // Un lot référencé par un copropriétaire mais absent de
+                    // l'état de division n'apparaîtrait nulle part : on le dit.
+                    if (result.orphelins && result.orphelins.length) {
+                        showError('Attention : ' + result.orphelins.length
+                            + ' ligne(s) de Coproprietaires visent un lot absent de EtatDivision et ne '
+                            + 'seront pas affichées (lots ' + result.orphelins.slice(0, 10).join(', ')
+                            + (result.orphelins.length > 10 ? '…' : '') + ').');
+                    }
+
+                    loadLotsDepuisSheets(true);
+
+                    const statusDiv = document.getElementById('admin-status');
+                    statusDiv.textContent = `${result.nombre} ligne(s) enregistrée(s) dans ${IMPORTS[type].feuille}`;
+                    statusDiv.style.display = 'block';
+                    statusDiv.className = 'success';
+                })
+                .catch(error => {
+                    showError('Erreur lors de l\'envoi. Vérifiez votre connexion internet.');
+                    console.error('Erreur:', error);
+                })
+                .finally(() => setButtonLoading(button, false));
+        }
+
         /**
-         * Modèle CSV vierge des lots. Les colonnes viennent du serveur plutôt
-         * que d'une liste recopiée ici, pour qu'elles ne puissent pas diverger
-         * de celles que l'import valide.
+         * Modèle CSV vierge d'une des deux feuilles. Les colonnes viennent du
+         * serveur plutôt que d'une liste recopiée ici, pour qu'elles ne puissent
+         * pas diverger de celles que l'import valide.
          */
-        function telechargerModeleLots(button) {
+        function telechargerModele(type, button) {
             setButtonLoading(button, true, 'Préparation...');
 
-            return fetch(SUIVI_SCRIPT_URL + '?action=modeleLots')
+            return fetch(SUIVI_SCRIPT_URL + '?action=modele&feuille=' + encodeURIComponent(type))
                 .then(response => response.json())
                 .then(result => {
                     if (!result.ok) {
@@ -1552,7 +1679,7 @@
 
                     // BOM UTF-8 : sans lui, Excel abîme « Copropriétaire » et « Façade ».
                     const csv = '\uFEFF' + lignes.map(ligne => ligne.map(champCsv).join(';')).join('\r\n') + '\r\n';
-                    declencherTelechargement(csv, 'modele-lots.csv');
+                    declencherTelechargement(csv, result.nomFichier || 'modele.csv');
                     showSuccess('Modèle téléchargé');
                 })
                 .catch(error => {
@@ -1581,41 +1708,6 @@
             lien.click();
             document.body.removeChild(lien);
             URL.revokeObjectURL(url);
-        }
-
-        function annulerImportLots() {
-            lotsAImporter = null;
-            document.getElementById('import-confirm').style.display = 'none';
-            document.getElementById('csvFile').value = '';
-        }
-
-        function confirmerImportLots(button) {
-            if (!lotsAImporter || !lotsAImporter.length) {
-                showError('Aucun fichier à importer');
-                return;
-            }
-
-            setButtonLoading(button, true, 'Import en cours...');
-            apiPost('importLots', { lots: lotsAImporter })
-                .then(result => {
-                    if (!result.ok) {
-                        showError('Erreur lors de l\'import : ' + result.error);
-                        return;
-                    }
-                    annulerImportLots();
-                    showSuccess(result.nombre + ' lots enregistrés dans Google Sheets');
-                    loadLotsDepuisSheets(true);
-
-                    const statusDiv = document.getElementById('admin-status');
-                    statusDiv.textContent = `${result.nombre} lots enregistrés dans la feuille Lots`;
-                    statusDiv.style.display = 'block';
-                    statusDiv.className = 'success';
-                })
-                .catch(error => {
-                    showError('Erreur lors de l\'envoi. Vérifiez votre connexion internet.');
-                    console.error('Erreur:', error);
-                })
-                .finally(() => setButtonLoading(button, false));
         }
 
         /* ============ Administration : comptes utilisateurs ============ */
