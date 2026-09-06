@@ -64,6 +64,12 @@ existe ou non, afin de ne pas permettre d'énumérer les comptes.
    - N° plan, Porte cave
    - Quote-part charges générales, Quote-part charges ascenseur, Description complète
 
+   Chaque bloc propose deux téléchargements : **le modèle**, vide avec une ligne
+   d'exemple, pour repartir de zéro ; et **les données actuelles**, export CSV du
+   contenu réel de la feuille, à corriger puis réimporter tel quel. L'export est
+   en lecture seule et lit la feuille directement, sans passer par le cache, pour
+   qu'un fichier périmé ne puisse pas écraser des données plus récentes.
+
    Chaque import **remplace intégralement** la feuille correspondante. Celui de
    l'état de division exige en plus la saisie de `CONFIRMER`, contrôlée aussi
    côté serveur.
@@ -118,6 +124,19 @@ Chaque **point** (un sujet : fuite, devis, mise aux normes, contentieux...) est 
   perdue en silence. La date du dernier import de `Coproprietaires` est
   affichée sur la liste des lots, accessible sans connexion — une correction
   faite directement dans la Google Sheet ne la met pas à jour.
+- **Performance de la liste des lots** : la jointure des deux feuilles coûte une
+  quinzaine d'allers-retours vers l'API Sheets, soit 2 à 4 secondes. Le résultat
+  est donc mis en cache côté serveur (`CacheService`) pendant 10 minutes, et ce
+  cache est **vidé par les deux imports** — une donnée importée depuis
+  l'application apparaît immédiatement. En revanche, une correction faite
+  directement dans la Google Sheet peut mettre jusqu'à 10 minutes à s'afficher.
+- **Robustesse des lectures** : `/exec` redirige vers `script.googleusercontent.com`,
+  et ce second saut renvoie parfois une page HTML alors que le script s'est bien
+  exécuté — d'où des échecs côté navigateur avec un journal serveur impeccable.
+  Les lectures publiques sont donc réessayées deux fois avec un délai croissant,
+  et tout échec nomme sa cause réelle (code HTTP, réponse non-JSON, panne réseau)
+  à l'écran comme dans la console, préfixée `[API]`. Les écritures ne sont
+  jamais réessayées, pour ne pas risquer un double import.
 - **Backend** : un Google Apps Script déployé en Application Web (`apps-script/Code.gs` dans ce dépôt), exposant une API JSON. Lecture publique via `GET ?action=list` et `GET ?action=lots` ; écriture via `POST`, chaque action portant un jeton de session que le serveur revalide.
 - **Accès** : comptes nominatifs, tous les droits vérifiés côté Apps Script (voir la section « Comptes et droits »).
 - **Environnements séparés** : la prod (`copropriete-app`) et le sandbox (`copropriete-app-sandbox`) ont chacun leur propre Google Sheet et leur propre déploiement Apps Script — aucune donnée de test ne peut se mélanger avec les données réelles.

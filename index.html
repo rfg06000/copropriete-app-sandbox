@@ -648,6 +648,7 @@
                             affichée sur la liste des lots.
                         </p>
                         <button class="calc-btn" id="modele-copro-btn" onclick="telechargerModele('coproprietaires', this)" style="margin-bottom:12px;">Télécharger le modèle</button>
+                        <button class="calc-btn" id="donnees-copro-btn" onclick="telechargerDonnees('coproprietaires', this)" style="margin-bottom:12px;margin-left:10px;">Télécharger les données actuelles</button>
                         <input type="file" id="csvCopro" accept=".csv" onchange="preparerImport(event, 'coproprietaires')">
                         <div id="import-confirm-coproprietaires" style="display:none;margin-top:15px;padding:15px;background:#fff3cd;border-radius:8px;color:#856404;">
                             <p id="import-confirm-text-coproprietaires" style="margin-bottom:10px;"></p>
@@ -665,6 +666,7 @@
                             Quote-part charges ascenseur, Description complète.
                         </p>
                         <button class="calc-btn" id="modele-etat-btn" onclick="telechargerModele('etatDivision', this)" style="margin-bottom:12px;">Télécharger le modèle</button>
+                        <button class="calc-btn" id="donnees-etat-btn" onclick="telechargerDonnees('etatDivision', this)" style="margin-bottom:12px;margin-left:10px;">Télécharger les données actuelles</button>
                         <input type="file" id="csvEtat" accept=".csv" onchange="preparerImport(event, 'etatDivision')">
                         <div id="import-confirm-etatDivision" style="display:none;margin-top:15px;padding:15px;background:#f8d7da;border:2px solid #c0392b;border-radius:8px;color:#721c24;">
                             <p style="font-weight:600;margin-bottom:10px;">⚠ Remplacement de la structure de l'immeuble</p>
@@ -1128,22 +1130,97 @@
             });
         }
 
+        function erreurApi(message, reessayable, corps) {
+            const err = new Error(message);
+            err.reessayable = reessayable;
+            err.corps = corps;
+            return err;
+        }
+
+        /**
+         * Lecture publique de l'API.
+         *
+         * fetch() ne rejette que sur une panne réseau : un code HTTP d'erreur, ou
+         * une réponse qui n'est pas du JSON, passaient jusqu'ici tous les deux pour
+         * une « panne de connexion ». On lit donc le corps en texte, on nomme la
+         * cause réelle et on la consigne dans la console.
+         *
+         * Le cas le plus fréquent avec Apps Script : /exec redirige vers
+         * script.googleusercontent.com et, sous charge, ce second saut renvoie
+         * parfois une page HTML alors que le script s'est bien exécuté — ce qui
+         * explique un journal serveur impeccable en face d'un échec navigateur.
+         * C'est transitoire, donc on réessaie.
+         */
+        function apiGet(action, params, tentativesRestantes) {
+            const reste = tentativesRestantes === undefined ? 2 : tentativesRestantes;
+
+            let url = SUIVI_SCRIPT_URL + '?action=' + encodeURIComponent(action);
+            Object.keys(params || {}).forEach(cle => {
+                url += '&' + encodeURIComponent(cle) + '=' + encodeURIComponent(params[cle]);
+            });
+
+            return fetch(url)
+                .then(response => response.text().then(texte => ({ response, texte })))
+                .then(({ response, texte }) => {
+                    if (!response.ok) {
+                        throw erreurApi('le serveur a répondu ' + response.status, true, texte);
+                    }
+                    try {
+                        return JSON.parse(texte);
+                    } catch (err) {
+                        throw erreurApi('réponse inattendue du serveur (ce n\'est pas du JSON)', true, texte);
+                    }
+                })
+                .catch(err => {
+                    const reessayable = err.reessayable !== false;
+                    console.warn('[API] ' + action + ' : ' + err.message
+                        + (err.corps ? ' — début de la réponse reçue : '
+                            + String(err.corps).replace(/\s+/g, ' ').slice(0, 200) : ''));
+
+                    if (reessayable && reste > 0) {
+                        const attente = 400 + (2 - reste) * 800;
+                        return new Promise(r => setTimeout(r, attente))
+                            .then(() => apiGet(action, params, reste - 1));
+                    }
+                    throw err;
+                });
+        }
+
         function apiPost(action, payload) {
             const body = Object.assign({ action: action }, payload || {});
             if (authToken) body.token = authToken;
 
+            // Volontairement sans réessai, contrairement à apiGet : rejouer une
+            // écriture dupliquerait un import ou une entrée d'historique. On se
+            // contente de nommer précisément la cause de l'échec.
             return fetch(SUIVI_SCRIPT_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify(body)
             })
-                .then(response => response.json())
+                .then(response => response.text().then(texte => ({ response, texte })))
+                .then(({ response, texte }) => {
+                    if (!response.ok) {
+                        throw erreurApi('le serveur a répondu ' + response.status, false, texte);
+                    }
+                    try {
+                        return JSON.parse(texte);
+                    } catch (err) {
+                        throw erreurApi('réponse inattendue du serveur (ce n\'est pas du JSON)', false, texte);
+                    }
+                })
                 .then(result => {
                     if (result && !result.ok && result.code === 'AUTH_REQUISE') {
                         clearSession();
                         openLoginModal();
                     }
                     return result;
+                })
+                .catch(err => {
+                    console.warn('[API] ' + action + ' : ' + err.message
+                        + (err.corps ? ' — début de la réponse reçue : '
+                            + String(err.corps).replace(/\s+/g, ' ').slice(0, 200) : ''));
+                    throw err;
                 });
         }
 
@@ -1392,12 +1469,18 @@
                 }
             }
 
-            restoreSession();
             handleResetTokenInUrl();
 
-            // Les lots et les points de suivi sont en lecture publique.
-            loadLotsDepuisSheets(true);
-            loadSuiviData();
+            // Apps Script sérialise les exécutions d'un même utilisateur : lancer
+            // ces trois requêtes en parallèle les mettait en file d'attente les
+            // unes derrière les autres, ce qui allonge chaque appel et multiplie
+            // les réponses transitoires en erreur. On les enchaîne.
+            // Les lots et les points de suivi restent en lecture publique ; en
+            // attendant leur arrivée, la liste s'affiche depuis le cache local.
+            restoreSession()
+                .then(() => loadLotsDepuisSheets(true))
+                .then(() => loadSuiviData())
+                .catch(error => console.error('Chargement initial incomplet :', error));
 
             // Gérer la navigation par ancre (#cave, #calcul, etc.) dans l'URL
             // Cette partie doit fonctionner MÊME SANS données
@@ -1458,8 +1541,7 @@
          * que la liste apparaisse avant la réponse du serveur.
          */
         function loadLotsDepuisSheets(silent = false) {
-            return fetch(SUIVI_SCRIPT_URL + '?action=lots')
-                .then(response => response.json())
+            return apiGet('lots')
                 .then(result => {
                     if (!result.ok) {
                         if (!silent) showError('Erreur lors du chargement des lots : ' + result.error);
@@ -1494,9 +1576,9 @@
                 })
                 .catch(error => {
                     if (!silent) {
-                        showError('Impossible de charger les lots. Vérifiez votre connexion internet.');
+                        showError('Impossible de charger les lots : ' + error.message + '.');
                     }
-                    console.log('Erreur chargement des lots:', error);
+                    console.error('Erreur chargement des lots:', error);
                 });
         }
 
@@ -1666,27 +1748,64 @@
         function telechargerModele(type, button) {
             setButtonLoading(button, true, 'Préparation...');
 
-            return fetch(SUIVI_SCRIPT_URL + '?action=modele&feuille=' + encodeURIComponent(type))
-                .then(response => response.json())
+            return apiGet('modele', { feuille: type })
                 .then(result => {
                     if (!result.ok) {
                         showError('Impossible de récupérer le modèle : ' + result.error);
                         return;
                     }
 
-                    const lignes = [result.entetes];
-                    if (result.exemple && result.exemple.length) lignes.push(result.exemple);
-
-                    // BOM UTF-8 : sans lui, Excel abîme « Copropriétaire » et « Façade ».
-                    const csv = '\uFEFF' + lignes.map(ligne => ligne.map(champCsv).join(';')).join('\r\n') + '\r\n';
-                    declencherTelechargement(csv, result.nomFichier || 'modele.csv');
+                    const lignes = result.exemple && result.exemple.length ? [result.exemple] : [];
+                    declencherTelechargement(construireCsv(result.entetes, lignes),
+                        result.nomFichier || 'modele.csv');
                     showSuccess('Modèle téléchargé');
                 })
                 .catch(error => {
-                    showError('Impossible de récupérer le modèle. Vérifiez votre connexion internet.');
+                    showError('Impossible de récupérer le modèle : ' + error.message + '.');
                     console.error('Erreur:', error);
                 })
                 .finally(() => setButtonLoading(button, false));
+        }
+
+        /**
+         * Export du contenu réel d'une des deux feuilles, à corriger puis
+         * réimporter par le bouton d'import voisin. Lecture seule : aucune
+         * confirmation renforcée, le garde-fou « CONFIRMER » ne concerne que
+         * l'import de l'état de division.
+         */
+        function telechargerDonnees(type, button) {
+            setButtonLoading(button, true, 'Préparation...');
+
+            return apiGet('donnees', { feuille: type })
+                .then(result => {
+                    if (!result.ok) {
+                        showError('Impossible de récupérer les données : ' + result.error);
+                        return;
+                    }
+
+                    const lignes = result.lignes || [];
+                    declencherTelechargement(construireCsv(result.entetes, lignes),
+                        result.nomFichier || 'donnees.csv');
+
+                    showSuccess(lignes.length
+                        ? lignes.length + ' ligne(s) exportée(s)'
+                        : 'La feuille est vide : seules les colonnes ont été exportées.');
+                })
+                .catch(error => {
+                    showError('Impossible de récupérer les données : ' + error.message + '.');
+                    console.error('Erreur:', error);
+                })
+                .finally(() => setButtonLoading(button, false));
+        }
+
+        /**
+         * Assemble un CSV réimportable : séparateur point-virgule, fins de ligne
+         * CRLF, et BOM UTF-8 sans lequel Excel abîme « Copropriétaire » et
+         * « Façade ».
+         */
+        function construireCsv(entetes, lignes) {
+            const toutes = [entetes].concat(lignes || []);
+            return '\uFEFF' + toutes.map(ligne => ligne.map(champCsv).join(';')).join('\r\n') + '\r\n';
         }
 
         /** Échappe un champ CSV : guillemets doublés, entourage si nécessaire. */
@@ -2041,8 +2160,7 @@
         }
 
         function loadSuiviData() {
-            fetch(SUIVI_SCRIPT_URL + '?action=list')
-                .then(response => response.json())
+            return apiGet('list')
                 .then(result => {
                     if (!result.ok) {
                         showError('Erreur lors du chargement des points de suivi : ' + result.error);
@@ -2054,7 +2172,7 @@
                     populateSuiviTable();
                 })
                 .catch(error => {
-                    showError('Impossible de charger les points de suivi. Vérifiez votre connexion internet.');
+                    showError('Impossible de charger les points de suivi : ' + error.message + '.');
                     console.error('Erreur:', error);
                 });
         }

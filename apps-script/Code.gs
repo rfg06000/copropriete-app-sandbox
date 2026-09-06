@@ -95,12 +95,16 @@ const MODELES = {
   etatDivision: {
     entetes: ETAT_HEADERS,
     exemple: ETAT_EXEMPLE,
-    nomFichier: 'modele-etat-division.csv'
+    nomFichier: 'modele-etat-division.csv',
+    cle: 'etat',                       // clé dans ensureAuthSheets_()
+    prefixeExport: 'etat-division'
   },
   coproprietaires: {
     entetes: COPRO_HEADERS,
     exemple: COPRO_EXEMPLE,
-    nomFichier: 'modele-coproprietaires.csv'
+    nomFichier: 'modele-coproprietaires.csv',
+    cle: 'copro',
+    prefixeExport: 'coproprietaires'
   }
 };
 
@@ -215,7 +219,19 @@ function benchmarkHash() {
   return ms;
 }
 
+/*
+ * Chaque appel à l'API Sheets est un aller-retour réseau (~250 ms) : c'est leur
+ * nombre, et non le volume de données, qui fait le temps de réponse. Les deux
+ * fonctions ci-dessous étaient rappelées à chaque étape du traitement ; on
+ * mémorise leur résultat pour la durée de l'exécution. Apps Script réinitialise
+ * les variables globales à chaque requête, ces caches ne survivent donc jamais
+ * d'un appel au suivant.
+ */
+let _feuillesSuivi = null;
+let _feuillesDonnees = null;
+
 function ensureSheetsExist_() {
+  if (_feuillesSuivi) return _feuillesSuivi;
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let points = ss.getSheetByName(POINTS_SHEET_NAME);
   let histo = ss.getSheetByName(HISTO_SHEET_NAME);
@@ -244,10 +260,12 @@ function ensureSheetsExist_() {
     histo.getRange(1, histo.getLastColumn() + 1, 1, manquantes.length).setValues([manquantes]);
   }
 
-  return { points: points, histo: histo };
+  _feuillesSuivi = { points: points, histo: histo };
+  return _feuillesSuivi;
 }
 
 function ensureAuthSheets_() {
+  if (_feuillesDonnees) return _feuillesDonnees;
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const creer = function (nom, entetes) {
     let sheet = ss.getSheetByName(nom);
@@ -255,12 +273,13 @@ function ensureAuthSheets_() {
     if (sheet.getLastRow() === 0) sheet.appendRow(entetes);
     return sheet;
   };
-  return {
+  _feuillesDonnees = {
     users: creer(USERS_SHEET_NAME, USERS_HEADERS),
     sessions: creer(SESSIONS_SHEET_NAME, SESSIONS_HEADERS),
     etat: creer(ETAT_SHEET_NAME, ETAT_HEADERS),
     copro: creer(COPRO_SHEET_NAME, COPRO_HEADERS)
   };
+  return _feuillesDonnees;
 }
 
 /**
@@ -310,6 +329,7 @@ function migrerLots_() {
 
   ecrireFeuille_(feuilles.etat, ETAT_HEADERS, lignesEtat);
   ecrireFeuille_(feuilles.copro, COPRO_HEADERS, lignesCopro);
+  invaliderCacheLots_();
 
   // La date de fraîcheur n'est délibérément pas renseignée : aucun import réel
   // n'a eu lieu, l'afficher serait trompeur.
@@ -687,7 +707,6 @@ function effacerEchecs_(email) {
 
 function doGet(e) {
   try {
-    ensureSheetsExist_();
     const action = (e.parameter.action || 'list');
 
     if (action === 'list') {
@@ -705,10 +724,11 @@ function doGet(e) {
     }
 
     if (action === 'lots') {
+      const reponse = readLotsPourReponse_();
       return jsonOut_({
         ok: true,
-        lots: readAllLots_(),
-        majCoproprietaires: getMajCoproprietaires_()
+        lots: reponse.lots,
+        majCoproprietaires: reponse.majCoproprietaires
       });
     }
 
@@ -722,6 +742,24 @@ function doGet(e) {
         entetes: modele.entetes,
         exemple: modele.exemple,
         nomFichier: modele.nomFichier
+      });
+    }
+
+    /*
+     * Contenu réel d'une des deux feuilles, à corriger puis réimporter tel quel.
+     *
+     * Lecture publique : ces colonnes sont déjà toutes servies par ?action=lots,
+     * cet export n'expose donc rien de nouveau. La rendre publique lui vaut en
+     * prime le réessai automatique du client, appréciable sur une lecture.
+     */
+    if (action === 'donnees') {
+      const modele = MODELES[e.parameter.feuille];
+      if (!modele) return jsonOut_({ ok: false, error: 'Feuille inconnue : ' + e.parameter.feuille });
+      return jsonOut_({
+        ok: true,
+        entetes: modele.entetes,
+        lignes: lireDonneesFeuille_(modele),
+        nomFichier: modele.prefixeExport + '-' + nowIso_().slice(0, 10) + '.csv'
       });
     }
 
@@ -812,6 +850,24 @@ function readAllLots_() {
   });
 }
 
+/**
+ * Lignes d'une feuille dans ses propres colonnes, prêtes à être réimportées.
+ *
+ * Lu directement plutôt que via le cache de la vue combinée : un export périmé,
+ * corrigé puis réimporté, écraserait silencieusement des données plus récentes.
+ * Les valeurs sont ramenées en texte pour que les nombres relus depuis Sheets
+ * ressortent tels qu'ils ont été saisis.
+ */
+function lireDonneesFeuille_(modele) {
+  const sheet = ensureAuthSheets_()[modele.cle];
+  return lireFeuille_(sheet).map(function (ligne) {
+    return modele.entetes.map(function (h) {
+      const v = ligne[h];
+      return v === undefined || v === null ? '' : String(v);
+    });
+  });
+}
+
 /** Numéros de lot de Coproprietaires absents d'EtatDivision. */
 function lotsOrphelins_() {
   const feuilles = ensureAuthSheets_();
@@ -830,6 +886,43 @@ function lotsOrphelins_() {
 
 function getMajCoproprietaires_() {
   return PropertiesService.getScriptProperties().getProperty(PROP_MAJ_COPRO) || '';
+}
+
+/*
+ * La vue combinée coûte une vingtaine d'allers-retours Sheets, pour des données
+ * qui ne changent qu'à un import. On la sert depuis CacheService, vidé
+ * explicitement par les deux imports : une modification passe donc à l'écran
+ * immédiatement, sans attendre l'expiration.
+ *
+ * La charge utile mesure ~50 Ko pour 123 lots, sous la limite de 100 Ko par
+ * entrée ; au-delà, put() lève et l'on sert simplement sans cache.
+ */
+const CACHE_LOTS_CLE = 'vue_lots_v1';
+const CACHE_LOTS_TTL_S = 600;   // 10 minutes
+
+function readLotsPourReponse_() {
+  const cache = CacheService.getScriptCache();
+
+  const enCache = cache.get(CACHE_LOTS_CLE);
+  if (enCache) {
+    try {
+      return JSON.parse(enCache);
+    } catch (err) {
+      // Entrée tronquée ou corrompue : on la remplace plutôt que d'échouer.
+    }
+  }
+
+  const reponse = { lots: readAllLots_(), majCoproprietaires: getMajCoproprietaires_() };
+  try {
+    cache.put(CACHE_LOTS_CLE, JSON.stringify(reponse), CACHE_LOTS_TTL_S);
+  } catch (err) {
+    Logger.log('Vue des lots trop volumineuse pour le cache : ' + err);
+  }
+  return reponse;
+}
+
+function invaliderCacheLots_() {
+  CacheService.getScriptCache().remove(CACHE_LOTS_CLE);
 }
 
 /* ================================ doPost ================================ */
@@ -1333,6 +1426,7 @@ function handleImportEtatDivision_(body, user) {
 
   ecrireFeuille_(ensureAuthSheets_().etat, ETAT_HEADERS,
     enLignesFeuille_(body.lignes, ETAT_HEADERS));
+  invaliderCacheLots_();
 
   // Des lots peuvent avoir disparu : les copropriétaires qui s'y rattachaient
   // deviennent orphelins et cesseraient d'être affichés sans prévenir.
@@ -1349,6 +1443,7 @@ function handleImportCoproprietaires_(body, user) {
 
   ecrireFeuille_(ensureAuthSheets_().copro, COPRO_HEADERS,
     enLignesFeuille_(body.lignes, COPRO_HEADERS));
+  invaliderCacheLots_();
 
   const maintenant = nowIso_();
   PropertiesService.getScriptProperties().setProperty(PROP_MAJ_COPRO, maintenant);
