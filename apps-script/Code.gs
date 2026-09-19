@@ -157,7 +157,8 @@ const CONTACTS_SHEET_NAME = 'PrestatairesContacts';
 
 const PRESTA_HEADERS = [
   'ID', 'Societe', 'Prestation', 'Telephone', 'Adresse',
-  'NumeroContrat', 'DateEcheanceContrat', 'Note', 'DateCreation', 'DateMAJ'
+  'NumeroContrat', 'DateEcheanceContrat', 'Note', 'DateCreation', 'DateMAJ',
+  'Visibilite'
 ];
 
 const CONTACTS_HEADERS = [
@@ -174,6 +175,26 @@ const CONTACTS_HEADERS = [
  * lirait les contacts en ouvrant l'URL /exec à la main.
  */
 const PRESTA_PUBLIC = ['ID', 'Societe', 'Prestation', 'Telephone'];
+
+/*
+ * Visibilité d'un prestataire. « Admin » retire la ligne de la projection
+ * publique : elle ne sort de prestatairesPublics_ ni pour le DOM, ni pour un
+ * appel direct à ?action=prestataires. Elle n'apparaît que dans la liste
+ * servie par handleListPrestataires_, derrière requireAdmin_.
+ *
+ * « Public » est la valeur par défaut, et une cellule vide vaut « Public » :
+ * les lignes créées avant l'ajout de la colonne restent donc visibles, comme
+ * avant. Un masquage ne doit jamais résulter d'un oubli de saisie.
+ */
+const VISIBILITE_PUBLIC = 'Public';
+const VISIBILITE_ADMIN = 'Admin';
+const VISIBILITES = [VISIBILITE_PUBLIC, VISIBILITE_ADMIN];
+
+/** Ramène une valeur stockée ou saisie à « Public » ou « Admin ». */
+function normaliserVisibilite_(brut) {
+  const texte = String(brut === null || brut === undefined ? '' : brut).trim().toLowerCase();
+  return texte === VISIBILITE_ADMIN.toLowerCase() ? VISIBILITE_ADMIN : VISIBILITE_PUBLIC;
+}
 
 // Plafond de lignes de contact par prestataire, vérifié côté serveur et pas
 // seulement dans l'interface.
@@ -835,8 +856,10 @@ function doGet(e) {
 
     /*
      * Liste publique des prestataires : Prestation, Société et Téléphone, rien
-     * d'autre. Les colonnes de la fiche et le tableau de contacts ne passent
-     * jamais par ici — voir PRESTA_PUBLIC et l'action prestataireFiche.
+     * d'autre, et seulement les lignes dont la Visibilité vaut « Public ». Les
+     * colonnes de la fiche, le tableau de contacts et les prestataires réservés
+     * aux administrateurs ne passent jamais par ici — voir PRESTA_PUBLIC,
+     * VISIBILITE_ADMIN, et les actions listPrestataires et prestataireFiche.
      */
     if (action === 'prestataires') {
       return jsonOut_({ ok: true, prestataires: prestatairesPublics_() });
@@ -1095,8 +1118,10 @@ function doPost(e) {
     if (action === 'renamePoint') return jsonOut_(handleRenamePoint_(body, requireAdmin_(body)));
     if (action === 'deletePoint') return jsonOut_(handleDeletePoint_(body, requireAdmin_(body)));
 
-    // --- Prestataires : la liste réduite est publique (doGet), tout le reste,
-    // fiche et contacts nominatifs compris, passe par requireAdmin_.
+    // --- Prestataires : seule la liste réduite des lignes « Public » l'est
+    // vraiment (doGet). Tout le reste — liste complète, fiche, contacts
+    // nominatifs — passe par requireAdmin_.
+    if (action === 'listPrestataires') return jsonOut_(handleListPrestataires_(body, requireAdmin_(body)));
     if (action === 'prestataireFiche') return jsonOut_(handlePrestataireFiche_(body, requireAdmin_(body)));
     if (action === 'createPrestataire') return jsonOut_(handleCreatePrestataire_(body, requireAdmin_(body)));
     if (action === 'editPrestataire') return jsonOut_(handleEditPrestataire_(body, requireAdmin_(body)));
@@ -1877,13 +1902,40 @@ function readAllContacts_() {
     });
 }
 
-/** Projection publique : uniquement les colonnes de PRESTA_PUBLIC. */
+/**
+ * Projection publique : uniquement les colonnes de PRESTA_PUBLIC, et
+ * uniquement les lignes marquées « Public ».
+ *
+ * Le filtre est ici, et pas dans le rendu : c'est le seul endroit par lequel
+ * ?action=prestataires produit sa réponse, donc un prestataire « Admin » est
+ * absent aussi bien du tableau affiché que du JSON brut qu'un visiteur non
+ * connecté obtiendrait en ouvrant l'URL /exec à la main.
+ */
 function prestatairesPublics_() {
-  return readAllPrestataires_().map(function (p) {
+  return readAllPrestataires_()
+    .filter(function (p) { return normaliserVisibilite_(p.Visibilite) === VISIBILITE_PUBLIC; })
+    .map(function (p) {
+      const vue = {};
+      PRESTA_PUBLIC.forEach(function (c) { vue[c] = p[c]; });
+      return vue;
+    });
+}
+
+/**
+ * Liste vue par un administrateur : toutes les lignes, « Admin » comprises,
+ * avec leur visibilité pour que l'interface puisse les signaler.
+ *
+ * Volontairement limitée aux colonnes de la liste : l'adresse, le contrat, la
+ * note et les contacts nominatifs restent réservés à prestataireFiche.
+ */
+function handleListPrestataires_(body, user) {
+  const lignes = readAllPrestataires_().map(function (p) {
     const vue = {};
     PRESTA_PUBLIC.forEach(function (c) { vue[c] = p[c]; });
+    vue.Visibilite = normaliserVisibilite_(p.Visibilite);
     return vue;
   });
+  return { ok: true, prestataires: lignes };
 }
 
 /*
@@ -1989,7 +2041,8 @@ function handleCreatePrestataire_(body, user) {
     body.dateEcheanceContrat || '',
     body.note || '',
     maintenant,
-    maintenant
+    maintenant,
+    normaliserVisibilite_(body.visibilite)
   ]);
 
   // appendRow écrit avant que le format de la cellule ne s'applique : on le
@@ -2026,7 +2079,8 @@ function handleEditPrestataire_(body, user) {
     adresse: 'Adresse',
     numeroContrat: 'NumeroContrat',
     dateEcheanceContrat: 'DateEcheanceContrat',
-    note: 'Note'
+    note: 'Note',
+    visibilite: 'Visibilite'
   };
   const colOf = function (name) { return PRESTA_HEADERS.indexOf(name) + 1; };
 
@@ -2034,6 +2088,11 @@ function handleEditPrestataire_(body, user) {
     if (!Object.prototype.hasOwnProperty.call(body, key)) return;
     if (key === 'telephone') {
       ecrireTelephone_(sheet, rowIndex, colOf('Telephone'), telNormalise);
+    } else if (key === 'visibilite') {
+      // Normalisée plutôt que refusée : une valeur inattendue retombe sur
+      // « Public », jamais sur un masquage que personne n'a demandé.
+      sheet.getRange(rowIndex, colOf('Visibilite'))
+        .setValue(normaliserVisibilite_(body.visibilite));
     } else {
       sheet.getRange(rowIndex, colOf(editable[key])).setValue(body[key]);
     }
@@ -2183,7 +2242,7 @@ const EXPORTS_PRESTATAIRES = {
     entetes: PRESTA_HEADERS,
     exemple: ['(généré)', 'Ascenseurs Dupont', 'Ascenseur', '01 23 45 67 89',
       '12 rue des Lilas, 75000 Paris', 'C-2024-118', '2027-06-30',
-      'Contrat de maintenance annuel', '(généré)', '(généré)'],
+      'Contrat de maintenance annuel', '(généré)', '(généré)', 'Public'],
     prefixe: 'prestataires'
   },
   prestatairesContacts: {

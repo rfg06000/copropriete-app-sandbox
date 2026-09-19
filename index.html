@@ -1105,6 +1105,7 @@
                         <th>Prestation</th>
                         <th>Prestataire</th>
                         <th>Numéro de téléphone</th>
+                        <th id="presta-col-visibilite" style="display:none;">Visibilité</th>
                         <th id="presta-col-fiche" style="display:none;">Fiche</th>
                     </tr>
                 </thead>
@@ -1267,6 +1268,13 @@
                     <label>Date d'échéance du contrat</label>
                     <input type="date" id="pf-dateEcheanceContrat">
                 </div>
+                <div class="form-group">
+                    <label>Visibilité</label>
+                    <select id="pf-visibilite">
+                        <option value="Public">Public (visible sans connexion)</option>
+                        <option value="Admin">Admin uniquement</option>
+                    </select>
+                </div>
             </div>
             <div class="form-group" style="margin-bottom:12px;">
                 <label>Coordonnées postales</label>
@@ -1361,6 +1369,13 @@
                     <label>Date d'échéance du contrat</label>
                     <input type="date" id="npr-dateEcheanceContrat">
                 </div>
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>Visibilité</label>
+                <select id="npr-visibilite" style="width:100%;">
+                    <option value="Public">Public (visible sans connexion)</option>
+                    <option value="Admin">Admin uniquement</option>
+                </select>
             </div>
             <div class="form-group" style="margin-bottom:12px;">
                 <label>Note</label>
@@ -1653,9 +1668,21 @@
             document.getElementById('nav-admin').style.display = estAdmin() ? '' : 'none';
             document.getElementById('suivi-new-point-container').style.display = estAdmin() ? '' : 'none';
             document.getElementById('presta-new-container').style.display = estAdmin() ? '' : 'none';
-            // La colonne « Fiche » est ajoutee ou retiree du DOM selon les
-            // droits : un changement de session doit la faire suivre.
-            if (prestatairesData.length) filterPrestataires();
+            // Un changement de session change la source de la liste, et pas
+            // seulement son rendu : un admin qui se deconnecte doit perdre les
+            // lignes « Admin » deja en memoire, et non se contenter de les
+            // masquer. On recharge donc depuis le serveur.
+            if (prestatairesChargees) {
+                if (!estAdmin()) {
+                    // Purge immediate, avant meme la reponse du serveur : les
+                    // lignes « Admin » ne doivent pas rester une seconde dans
+                    // le DOM ni en memoire apres une deconnexion.
+                    prestatairesData = prestatairesData.filter(
+                        p => String(p.Visibilite || '') !== 'Admin');
+                    filterPrestataires();
+                }
+                loadPrestataires();
+            }
             document.getElementById('admin-content').style.display = estAdmin() ? 'block' : 'none';
             document.getElementById('admin-refuse').style.display = estAdmin() ? 'none' : 'block';
 
@@ -3372,11 +3399,12 @@
         /* ========================= Prestataires ========================= */
 
         /*
-         * La liste est publique et ne porte que Prestation, Société et
-         * Téléphone : c'est tout ce que le serveur accepte de servir sans
-         * jeton. La fiche complète et les contacts nominatifs sont demandés
-         * séparément, par une action que requireAdmin_ protège — masquer le
-         * bouton « Fiche » ne serait qu'un habillage.
+         * La liste publique ne porte que Prestation, Société et Téléphone, et
+         * seulement pour les prestataires marqués « Public » : c'est tout ce
+         * que le serveur accepte de servir sans jeton. Les prestataires
+         * « Admin », la fiche complète et les contacts nominatifs sont demandés
+         * séparément, par des actions que requireAdmin_ protège — masquer le
+         * bouton « Fiche » ou filtrer à l'affichage ne serait qu'un habillage.
          */
         /**
          * Affichage d'un numéro par paires : 0612345678 → « 06 12 34 56 78 ».
@@ -3398,18 +3426,35 @@
         }
 
         let prestatairesData = [];
+        let prestatairesChargees = false;
         let currentOpenPrestataireId = null;
         let prestataireContacts = [];
         let deletePrestataireConfirmPending = false;
 
+        /*
+         * Deux sources pour la même liste, selon les droits :
+         *  - sans jeton, ?action=prestataires, qui ne sert que les lignes
+         *    marquées « Public » ;
+         *  - connecté en admin, l'action listPrestataires, derrière
+         *    requireAdmin_, qui rend aussi les lignes « Admin ».
+         *
+         * Le filtrage se fait donc côté serveur, pas ici : un prestataire masqué
+         * n'est jamais envoyé au navigateur d'un visiteur, et ne peut pas être
+         * retrouvé en lisant le JSON ou le DOM.
+         */
         function loadPrestataires() {
-            return apiGet('prestataires')
+            const requete = estAdmin()
+                ? apiPost('listPrestataires', {})
+                : apiGet('prestataires');
+
+            return requete
                 .then(result => {
                     if (!result.ok) {
                         showError('Erreur lors du chargement des prestataires : ' + result.error);
                         return;
                     }
                     prestatairesData = result.prestataires || [];
+                    prestatairesChargees = true;
                     filterPrestataires();
                 })
                 .catch(error => {
@@ -3436,11 +3481,12 @@
             // en-tête comprise, pour ne pas laisser une colonne vide aux autres.
             const admin = estAdmin();
             document.getElementById('presta-col-fiche').style.display = admin ? '' : 'none';
+            document.getElementById('presta-col-visibilite').style.display = admin ? '' : 'none';
 
             if (!lignes.length) {
                 const tr = document.createElement('tr');
                 const td = document.createElement('td');
-                td.colSpan = admin ? 4 : 3;
+                td.colSpan = admin ? 5 : 3;
                 td.textContent = prestatairesData.length
                     ? 'Aucun prestataire ne correspond à cette recherche.'
                     : 'Aucun prestataire enregistré.';
@@ -3458,6 +3504,12 @@
                 });
 
                 if (admin) {
+                    const tdVis = document.createElement('td');
+                    const masque = String(p.Visibilite || '') === 'Admin';
+                    tdVis.textContent = masque ? 'Admin uniquement' : 'Public';
+                    if (masque) tdVis.style.color = '#b45309';
+                    tr.appendChild(tdVis);
+
                     const td = document.createElement('td');
                     const btn = document.createElement('button');
                     btn.type = 'button';
@@ -3511,6 +3563,11 @@
             document.getElementById('pf-dateEcheanceContrat').value =
                 String(p.DateEcheanceContrat || '').slice(0, 10);
 
+            // Une cellule vide (ligne créée avant l'ajout de la colonne) vaut
+            // « Public », comme côté serveur.
+            document.getElementById('pf-visibilite').value =
+                String(p.Visibilite || '') === 'Admin' ? 'Admin' : 'Public';
+
             prestataireContacts = contacts;
             afficherContacts();
         }
@@ -3531,7 +3588,8 @@
                 adresse: document.getElementById('pf-adresse').value.trim(),
                 numeroContrat: document.getElementById('pf-numeroContrat').value.trim(),
                 dateEcheanceContrat: document.getElementById('pf-dateEcheanceContrat').value,
-                note: document.getElementById('pf-note').value.trim()
+                note: document.getElementById('pf-note').value.trim(),
+                visibilite: document.getElementById('pf-visibilite').value
             })
                 .then(result => {
                     if (!result.ok) {
@@ -3605,6 +3663,7 @@
             ['npr-societe', 'npr-prestation', 'npr-telephone', 'npr-adresse',
              'npr-numeroContrat', 'npr-dateEcheanceContrat', 'npr-note']
                 .forEach(id => { document.getElementById(id).value = ''; });
+            document.getElementById('npr-visibilite').value = 'Public';
             document.getElementById('nouveauPrestataireModal').classList.add('active');
         }
 
@@ -3629,7 +3688,8 @@
                 adresse: document.getElementById('npr-adresse').value.trim(),
                 numeroContrat: document.getElementById('npr-numeroContrat').value.trim(),
                 dateEcheanceContrat: document.getElementById('npr-dateEcheanceContrat').value,
-                note: document.getElementById('npr-note').value.trim()
+                note: document.getElementById('npr-note').value.trim(),
+                visibilite: document.getElementById('npr-visibilite').value
             })
                 .then(result => {
                     if (!result.ok) {
